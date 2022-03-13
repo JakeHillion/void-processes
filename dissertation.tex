@@ -60,8 +60,8 @@
 %% the commands and values with those provided to you when you
 %% complete the rights form.
 \setcopyright{acmcopyright}
-\copyrightyear{2018}
-\acmYear{2018}
+\copyrightyear{2022}
+\acmYear{2022}
 \acmDOI{XXXXXXX.XXXXXXX}
 
 
@@ -185,17 +185,35 @@ TODO
 
 TODO
 
+
+
+\subsection{Threat Model}
+
+I present a threat model in which application binaries are trusted absolutely. That is, the software provider had no ill intent, and once the binary is on disk, it will not change without permission. This means that one can trust the binary to set up its own security, as it is protecting not against malice by its own developers, but instead bugs in the software.
+
+TODO
+
 \section{Background}
 
 TODO
 
-\subsection{`clone3`}
+\subsection{File Descriptor Passing}
+\label{section:file-descriptor-passing}
 
 TODO
 
 \section{System Design}
 
+\begin{figure}
+    \centering
+    \includegraphics[width=\columnwidth]{figures/self-compartmentalisation.png}
+    \caption{Interaction between the application and the environment.}
+    \label{fig:self-compartmentalisation-interactions}
+\end{figure}
+
 TODO
+
+The multi-entrypoint application shim creates an object capability out of process creation. 
 
 \section{Language Frontends}
 
@@ -207,11 +225,11 @@ TODO
 
 TODO
 
-\subsection{Echo Server}
+\subsection{gzip}
 
 TODO
 
-\subsection{File Copy}
+\subsection{Echo Server}
 
 TODO
 
@@ -223,15 +241,15 @@ TODO
 
 \subsection{Containerisation}
 
-TODO
+Full fat container solutions such as Docker [CN], containerd [CN]
 
 \subsection{systemd}
 
-\texttt{systemd} \citep{watson_capsicum_2010} provides a declarative interface to all of the process separation techniques used in this work. Rather than the responsibility of the programmer, creating these declarative descriptions is most commonly left to the package maintainers. This work seeks to provide similar capabilities to the people best suited to privilege separating an application: the developers.
+\texttt{systemd} [CN] provides a declarative interface to all of the process separation techniques used in this work. Rather than the responsibility of the programmer, creating these declarative descriptions is most commonly left to the package maintainers. This work seeks to provide similar capabilities to the people best suited to privilege separating an application: the developers.
 
 \subsection{Capsicum}
 
-TODO
+Capsicum \citep{watson_capsicum_2010} extends UNIX file descriptors in FreeBSD to reflect the rights on the object they hold. These capabilities may be shared between processes as other file descriptors (§\ref{section:file-descriptor-passing}). The goals of both software are the same: make privilege separated software better. However, we take quite different approaches. Multi-entrypoint applications focus on building a static definition really close to the code, while Capsicum allows processes to dynamically privilege separate. This allows applying static analysis to the policies, while also keeping the definition close to the code.
 
 \section{Future Work}
 
@@ -247,7 +265,7 @@ TODO
 %% identification of the section in the article metadata, and the
 %% consistent spelling of the heading.
 \begin{acks}
-To Robert, for the bagels and explaining CMYK and color spaces.
+TODO: acknowledgements
 \end{acks}
 
 %%
