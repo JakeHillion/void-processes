@@ -93,6 +93,10 @@
 %%\citestyle{acmauthoryear}
 
 %%
+%% Personal package imports
+\usepackage{listings}
+
+%%
 %% end of the preamble, start of the body of the document source.
 \begin{document}
 
@@ -185,13 +189,9 @@ TODO
 
 TODO
 
-
-
 \subsection{Threat Model}
 
 I present a threat model in which application binaries are trusted absolutely. That is, the software provider had no ill intent, and once the binary is on disk, it will not change without permission. This means that one can trust the binary to set up its own security, as it is protecting not against malice by its own developers, but instead bugs in the software.
-
-TODO
 
 \section{Background}
 
@@ -211,25 +211,47 @@ TODO
     \label{fig:self-compartmentalisation-interactions}
 \end{figure}
 
-TODO
-
 The multi-entrypoint application shim creates an object capability out of process creation. 
 
 \section{Language Frontends}
 
 TODO
 
+\subsection{Rust}
+
+\lstset{language=C,caption={A sample application using the Rust language frontend.}}
+\begin{lstlisting}[float]
+#[entrypoint]
+fn main() {
+  let input_file = ...;
+  let output_file = ...;
+  
+  encrypt(input_file, output_file);
+}
+
+#[entrypoint]
+fn encrypt(mut in: File, mut out: File)
+\end{lstlisting}
+
 \section{Example Applications}
 
 \subsection{No Permissions}
 
-TODO
+The cornerstone of strong process separation is an application that is completely deprivileged.
+
+\lstset{language=C,caption={An application that requires only stdout and stderr.}}
+\begin{lstlisting}[float]
+#[entrypoint(stdout,stderr)]
+fn main() { println!("hello world!"); }
+\end{lstlisting}
 
 \subsection{gzip}
 
-TODO
+GNU gzip \citep{gailly_gzip_2020} is well structured for privilege separation, though doesn't implement it by default. There is a clear split between the processing logic, selecting the items to do work on, and the compression/decompression routines, each of which are handed a pair of input and output file descriptors. This is shown by Watson et al. in \cite{watson_capsicum_2010}.
 
-\subsection{Echo Server}
+As C is not an adapted language for multi-entrypoint applications, adapting it is slightly more verbose than the other examples seen. However, the resulting code change is still only X lines, if a bit more intricate. This places the risky compression and decompression routines in full sandboxes, while still allowing the simpler argument processing code ambient authority. The argument processing code needs no additional permissions to be able to handle this permissioning, as the required permissions are provided by the shim.
+
+\subsection{TLS Server}
 
 TODO
 
@@ -239,9 +261,11 @@ TODO
 
 \section{Related Work}
 
-\subsection{Containerisation}
+\subsection{Virtual Machines and Containers}
 
-Full fat container solutions such as Docker [CN], containerd [CN]
+Virtual Machine solutions \citep{barham_xen_2003,vmware_inc_understanding_2008} provide the ability to split a single machine into multiple virtual machines. When placing a single application in each virtual machine, they are effectively isolated from one another. Full fat container solutions such as Docker [CN], containerd [CN], and systemd-nspawn [CN] provide mechanisms to isolate an application almost completely from other applications running on a single machine. Some have claimed that this provides isolation superior to virtual machines \citep{soltesz_container-based_2007}.
+
+Container solutions are less effective at isolating parts of an application from itself [CN with research].
 
 \subsection{systemd}
 
@@ -252,6 +276,8 @@ Full fat container solutions such as Docker [CN], containerd [CN]
 Capsicum \citep{watson_capsicum_2010} extends UNIX file descriptors in FreeBSD to reflect the rights on the object they hold. These capabilities may be shared between processes as other file descriptors (§\ref{section:file-descriptor-passing}). The goals of both software are the same: make privilege separated software better. However, we take quite different approaches. Multi-entrypoint applications focus on building a static definition really close to the code, while Capsicum allows processes to dynamically privilege separate. This allows applying static analysis to the policies, while also keeping the definition close to the code.
 
 \section{Future Work}
+
+\subsection{Dynamic Linking}
 
 TODO
 
@@ -277,36 +303,6 @@ TODO: acknowledgements
 %%
 %% If your work has an appendix, this is the place to put it.
 \appendix
-
-\section{Research Methods}
-
-\subsection{Part One}
-
-Lorem ipsum dolor sit amet, consectetur adipiscing elit. Morbi
-malesuada, quam in pulvinar varius, metus nunc fermentum urna, id
-sollicitudin purus odio sit amet enim. Aliquam ullamcorper eu ipsum
-vel mollis. Curabitur quis dictum nisl. Phasellus vel semper risus, et
-lacinia dolor. Integer ultricies commodo sem nec semper.
-
-\subsection{Part Two}
-
-Etiam commodo feugiat nisl pulvinar pellentesque. Etiam auctor sodales
-ligula, non varius nibh pulvinar semper. Suspendisse nec lectus non
-ipsum convallis congue hendrerit vitae sapien. Donec at laoreet
-eros. Vivamus non purus placerat, scelerisque diam eu, cursus
-ante. Etiam aliquam tortor auctor efficitur mattis.
-
-\section{Online Resources}
-
-Nam id fermentum dui. Suspendisse sagittis tortor a nulla mollis, in
-pulvinar ex pretium. Sed interdum orci quis metus euismod, et sagittis
-enim maximus. Vestibulum gravida massa ut felis suscipit
-congue. Quisque mattis elit a risus ultrices commodo venenatis eget
-dui. Etiam sagittis eleifend elementum.
-
-Nam interdum magna at lectus dignissim, ac dignissim lorem
-rhoncus. Maecenas eu arcu ac neque placerat aliquam. Nunc pulvinar
-massa et mattis lacinia.
 
 \end{document}
 \endinput
