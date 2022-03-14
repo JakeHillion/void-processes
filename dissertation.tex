@@ -95,6 +95,7 @@
 %%
 %% Personal package imports
 \usepackage{listings}
+\usepackage{multirow}
 
 %%
 %% end of the preamble, start of the body of the document source.
@@ -195,12 +196,16 @@ I present a threat model in which application binaries are trusted absolutely. T
 
 \section{Background}
 
-TODO
-
 \subsection{File Descriptor Passing}
 \label{section:file-descriptor-passing}
 
-TODO
+File descriptor passing is the act of handing a file descriptor (in this case a capability) to a foreign process. As the memory representation of a file descriptor on Linux is a simple number, passing it to a different process does not immediately confer access to that file descriptor. To pass the file descriptor in a meaningful way, there must be some kernel intervention.
+
+Modern Linux provides multiple methods for file descriptor passing. Three will be studied here: \texttt{fork}, \texttt{CLONE\_FILES}, and \texttt{sendmsg}. When a new process is forked, the file-descriptor table of the forking process is duplicated and given to the new child process. Altering these tables in each process, for example by opening a new file, does not alter the table in the other process. This is known as copy-on-write. This behaviour can be altered by calling \texttt{clone(2)} with the \texttt{CLONE\_FILES} flag. This keeps the tables in sync, rather than allowing them to diverge. Finally, file descriptors can be sent as ancillary data in a \texttt{sendmsg} call. This requests that the kernel create a new file descriptor in the foreign table when \texttt{recvmsg} is called, allowing for more targeted file-descriptor transfers.
+
+As file-descriptor passing is fundamental to this application, understanding the performance of these techniques was highly important. Each of send and receive are studied, as the asynchronous protocols allow for these to differ in performance. That is, the send may be cheap, but require more work to be done when the file descriptor is received. The results of this study are given in Figure [FN].
+
+TODO: Complete performance study.
 
 \section{System Design}
 
@@ -232,6 +237,8 @@ fn main() {
 #[entrypoint]
 fn encrypt(mut in: File, mut out: File)
 \end{lstlisting}
+
+TODO
 
 \section{Example Applications}
 
@@ -265,7 +272,9 @@ TODO
 
 Virtual Machine solutions \citep{barham_xen_2003,vmware_inc_understanding_2008} provide the ability to split a single machine into multiple virtual machines. When placing a single application in each virtual machine, they are effectively isolated from one another. Full fat container solutions such as Docker [CN], containerd [CN], and systemd-nspawn [CN] provide mechanisms to isolate an application almost completely from other applications running on a single machine. Some have claimed that this provides isolation superior to virtual machines \citep{soltesz_container-based_2007}.
 
-Container solutions are less effective at isolating parts of an application from itself [CN with research].
+Both of these solutions are less effective at isolating parts of an application from itself [CN with research]. Consider running only a TLS web server in a virtual machine. Although other applications will be unable to access the certificates, as they are in different virtual machines, methods within the application that should not be able to access the certificates still can.
+
+While virtual machines and containers provide a strong isolation at the application level, they are not a compelling solution to intra-application privilege separation.
 
 \subsection{systemd}
 
