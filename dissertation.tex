@@ -211,21 +211,28 @@ TODO: Complete performance study.
 
 \begin{figure}
     \centering
-    \includegraphics[width=\columnwidth]{figures/self-compartmentalisation.png}
+    \includegraphics[width=\columnwidth]{figures/self-compartmentalisation-interactions.png}
     \caption{Interaction between the application and the environment.}
     \label{fig:self-compartmentalisation-interactions}
 \end{figure}
 
-The multi-entrypoint application shim creates an object capability out of process creation. 
+An example of running a multi-entrypoint application is given in Figure \ref{fig:self-compartmentalisation-interactions}. What was originally a monolithic application becomes a set of applications that communicate with a new shim. The shim does not replace the kernel, and instead supplements it with new higher-level abilities. Each entrypoint receives input from the shim, and may be able to return data if appropriate. Most of this data is in the form of file descriptors, which are treated as capabilities in this system.
+
+A multi-entrypoint application stores the requirements for running it as static data in the ELF of the binary. When launched, \texttt{binfmt\_misc} is used to launch the application with the multi-entrypoint shim. The shim decodes this data and sets up processes and IPC accordingly.
+
+The shim takes advantage of high levels of privilege to be able to more effectively deprivilege an application than an application with ambient authority could. For example, creating a new network namespace requires \texttt{CAP\_SYS\_ADMIN}, which would give many applications more privilege than they require. By deferring to a shim with extra privileges, this trusted code can be written only once, and avoid conferring more privileges than otherwise required.
 
 \section{Language Frontends}
 
-TODO
+The language frontends are an extremely important part of this project, closing the gap between a static privilege separation solution like SELinux [CN] and a dynamic one like Capsicum \citep{watson_capsicum_2010}. I have implemented a language frontend in Rust and will describe it in this section.
 
 \subsection{Rust}
 
-\lstset{language=C,caption={A sample application using the Rust language frontend.}}
+\lstset{language=C,caption={A sample application using the Rust language frontend.},label={lst:rust-language-frontend}}
 \begin{lstlisting}[float]
+#[entrypoint]
+fn encrypt(mut in: File, mut out: File)
+
 #[entrypoint]
 fn main() {
   let input_file = ...;
@@ -233,22 +240,25 @@ fn main() {
   
   encrypt(input_file, output_file);
 }
-
-#[entrypoint]
-fn encrypt(mut in: File, mut out: File)
 \end{lstlisting}
 
-TODO
+The Rust frontend uses macros to wrap functions with high-level primitives into multi-entrypoint compatible entrypoints. Further, it allows calling these functions using the new interface via the shim. Consider the example in Listing \ref{lst:rust-language-frontend}.
+
+Firstly, the encrypt entrypoint is created. This is a regular Rust function which takes two high-level File objects, a wrapped file descriptor. The entrypoint macro wraps this function, providing in its place an \texttt{extern "C"} function that is unmangled and takes argc/argv. This allows functions with high-level arguments to be used as normal, with the argument parsing abstracted away by the library.
+
+Second is the ordinary main function for the application. This is also tagged as an entrypoint, allowing the library to help out with more calls. The example given here is that of the encrypt method, which uses the API seen above. The use of macros here allows the call to encrypt to remain type safe, even though the call must pass through an external interface (the shim itself).
+
+A significant benefit to this approach is the ease of disabling the multi-entrypoint application. By turning the entrypoint macro into identity with a crate feature, the code is compiled without the aid of the multi-entrypoint shim. This allows for significantly easier debugging, as the application follows a single execution path, rather than needing to be debugged as a distributed application.
 
 \section{Example Applications}
 
 \subsection{No Permissions}
 
-The cornerstone of strong process separation is an application that is completely deprivileged.
+The cornerstone of strong process separation is an application that is completely deprivileged. Listing \ref{lst:deprivileged-application} shows an application which, when run under the shim, drops all privileges except \texttt{stdout}. This is easy to achieve under the shim.
 
-\lstset{language=C,caption={An application that requires only stdout and stderr.}}
+\lstset{language=C,caption={An application that requires only stdout and stderr.},label={lst:deprivileged-application}}
 \begin{lstlisting}[float]
-#[entrypoint(stdout,stderr)]
+#[entrypoint(stdout)]
 fn main() { println!("hello world!"); }
 \end{lstlisting}
 
@@ -260,7 +270,18 @@ As C is not an adapted language for multi-entrypoint applications, adapting it i
 
 \subsection{TLS Server}
 
-TODO
+\begin{figure}
+    \centering
+    \includegraphics[width=\columnwidth]{figures/tls-server-splitting.png}
+    \caption{Process separation in a TLS server.}
+    \label{fig:tls-server-splitting}
+\end{figure}
+
+Finally, a rudimentary TLS server is created to show the rich privilege separation abilities of multi-entrypoint applications. An example structure is shown in Figure \ref{fig:tls-server-splitting}. Rather than being provided with a view of the network, the initial TCP handling process is given an already bound socket listener by the shim. This allows the TCP handler to live in an extremely restricted zero-access network namespace, while still performing the tasks of receiving new TCP connections.
+
+Next, the TCP handler hands off the new TCP connections to the shim. Though the figure shows this as a direct connection between the TCP handler and the TLS handler, they are passed through the shim, from which the shim spawns a fresh TLS handler for each connection. The TLS handler is handed file descriptors to the certificate and key files that it requires, and hands back a decrypted request reader and an empty response writer file descriptor to the shim.
+
+Finally, this pair of decrypted request reader and response writer are handed to a new process which handles the request. In the example case, this new process is handed a dirfd to \texttt{/var/www/html}, which is bind-mounted into an empty file system namespace by the shim. This allows the request handler enough access to serve files, while restricting access to anything else.
 
 \section{Evaluation}
 
