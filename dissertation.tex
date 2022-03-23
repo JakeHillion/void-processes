@@ -104,7 +104,7 @@
 %%
 %% The "title" command has an optional parameter,
 %% allowing the author to define a "short title" to be used in page headers.
-\title[Orchestrating the Void]{Orchestrating the Void: Building up from empty namespaces on Linux}
+\title[Orchestrating the Void]{Orchestrating the Void: Running bespoke applications in empty namespaces on Linux}
 
 %%
 %% The "author" command and its associated commands are used to define
@@ -216,7 +216,7 @@ TODO: Complete performance study.
     \label{fig:self-compartmentalisation-interactions}
 \end{figure}
 
-An example of running a multi-entrypoint application is given in Figure \ref{fig:self-compartmentalisation-interactions}. What was originally a monolithic application becomes a set of applications that communicate with a new shim. The shim does not replace the kernel, and instead supplements it with new higher-level abilities. Each entrypoint receives input from the shim, and may be able to return data if appropriate. Most of this data is in the form of file descriptors, which are treated as capabilities in this system.
+An example of running a multi-entrypoint application is given in Figure \ref{fig:self-compartmentalisation-interactions}. What was originally a monolithic application becomes a set of applications that communicate with a new shim. The shim does not replace the kernel, and instead supplements it with new higher-level abilities. Each entrypoint receives input from the shim, and can return data to the shim where appropriate. Most of this data is in the form of file descriptors, which are treated as capabilities in this system.
 
 A multi-entrypoint application stores the requirements for running it as static data in the ELF of the binary. When launched, \texttt{binfmt\_misc} is used to launch the application with the multi-entrypoint shim. The shim decodes this data and sets up processes and IPC accordingly.
 
@@ -266,7 +266,7 @@ fn main() { println!("hello world!"); }
 
 GNU gzip \citep{gailly_gzip_2020} is well structured for privilege separation, though doesn't implement it by default. There is a clear split between the processing logic, selecting the items to do work on, and the compression/decompression routines, each of which are handed a pair of input and output file descriptors. This is shown by Watson et al. in \cite{watson_capsicum_2010}.
 
-As C is not an adapted language for multi-entrypoint applications, adapting it is slightly more verbose than the other examples seen. However, the resulting code change is still only X lines, if a bit more intricate. This places the risky compression and decompression routines in full sandboxes, while still allowing the simpler argument processing code ambient authority. The argument processing code needs no additional permissions to be able to handle this permissioning, as the required permissions are provided by the shim.
+As C is not an adapted language for multi-entrypoint applications, adapting it is slightly more verbose than the other examples seen. However, the resulting code change is still only X lines, if a bit more intricate. This places the risky compression and decompression routines in full sandboxes, while still allowing the simpler argument processing code ambient authority. The argument processing code needs no additional Linux capabilities to manage this permissioning, as the required capabilities are provided by the shim.
 
 \subsection{TLS Server}
 
