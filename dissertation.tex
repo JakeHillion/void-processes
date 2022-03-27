@@ -97,6 +97,10 @@
 \usepackage{listings}
 \usepackage{multirow}
 
+% TODO: remove me
+\usepackage{todonotes}
+\setuptodonotes{inline}
+
 %%
 %% end of the preamble, start of the body of the document source.
 \begin{document}
@@ -184,15 +188,17 @@
 
 \section{Introduction}
 
-TODO
+\todo{Write introduction}
 
 \section{Motivation}
 
-TODO
+\todo{Write motivation}
 
 \subsection{Threat Model}
 
 I present a threat model in which application binaries are trusted absolutely. That is, the software provider had no ill intent, and once the binary is on disk, it will not change without permission. This means that one can trust the binary to set up its own security, as it is protecting not against malice by its own developers, but instead bugs in the software.
+
+\todo{Finalise threat model}
 
 \section{Background}
 
@@ -205,7 +211,7 @@ Modern Linux provides multiple methods for file descriptor passing. Three will b
 
 As file-descriptor passing is fundamental to this application, understanding the performance of these techniques was highly important. Each of send and receive are studied, as the asynchronous protocols allow for these to differ in performance. That is, the send may be cheap, but require more work to be done when the file descriptor is received. The results of this study are given in Figure [FN].
 
-TODO: Complete performance study.
+\todo{Complete performance study.}
 
 \section{System Design}
 
@@ -221,6 +227,20 @@ An example of running a multi-entrypoint application is given in Figure \ref{fig
 A multi-entrypoint application stores the requirements for running it as static data in the ELF of the binary. When launched, \texttt{binfmt\_misc} is used to launch the application with the multi-entrypoint shim. The shim decodes this data and sets up processes and IPC accordingly.
 
 The shim takes advantage of high levels of privilege to be able to more effectively deprivilege an application than an application with ambient authority could. For example, creating a new network namespace requires \texttt{CAP\_SYS\_ADMIN}, which would give many applications more privilege than they require. By deferring to a shim with extra privileges, this trusted code can be written only once, and avoid conferring more privileges than otherwise required.
+
+\subsection{Building the Void}
+
+Namespaces in Linux create varying levels of isolation by default. This is because many of the namespaces are generated in a copy-on-write fashion, meaning that changes are not immediate.
+
+Mount namespaces were the first [CN] namespaces introduced to Linux, in kernel version X.Y.Z. The API is particularly unfriendly to creating a Void, as not only is the creation copy-on-write, many filesystems are mounted shared. This means that they propagate back through namespace boundaries. \todo{Finish section on mount namespaces}
+
+Network namespaces \todo{Finish section on network namespaces}
+
+\todo{Finish section on remaining namespaces}
+
+\subsection{Creation in the emptiness}
+
+\todo{Write section on growing from a void namespace}
 
 \section{Language Frontends}
 
@@ -285,7 +305,7 @@ Finally, this pair of decrypted request reader and response writer are handed to
 
 \section{Evaluation}
 
-TODO
+\todo{Write evaluation}
 
 \section{Related Work}
 
@@ -309,11 +329,11 @@ Capsicum \citep{watson_capsicum_2010} extends UNIX file descriptors in FreeBSD t
 
 \subsection{Dynamic Linking}
 
-TODO
+\todo{Write section on dynamic linking future work}
 
 \section{Conclusion}
 
-TODO
+\todo{Write conclusion}
 
 %%
 %% The acknowledgments section is defined using the "acks" environment
@@ -321,7 +341,7 @@ TODO
 %% identification of the section in the article metadata, and the
 %% consistent spelling of the heading.
 \begin{acks}
-TODO: acknowledgements
+\todo{acknowledgements}
 \end{acks}
 
 %%
