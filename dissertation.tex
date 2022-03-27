@@ -228,13 +228,13 @@ A multi-entrypoint application stores the requirements for running it as static 
 
 The shim takes advantage of high levels of privilege to be able to more effectively deprivilege an application than an application with ambient authority could. For example, creating a new network namespace requires \texttt{CAP\_SYS\_ADMIN}, which would give many applications more privilege than they require. By deferring to a shim with extra privileges, this trusted code can be written only once, and avoid conferring more privileges than otherwise required.
 
-\subsection{Building the Void}
+\subsection{Preparing the Void}
 
-Namespaces in Linux create varying levels of isolation by default. This is because many of the namespaces are generated in a copy-on-write fashion, meaning that changes are not immediate.
+Preparing a void for a new process takes advantage of the namespaces feature in Linux. 
 
-Mount namespaces were the first [CN] namespaces introduced to Linux, in kernel version X.Y.Z. The API is particularly unfriendly to creating a Void, as not only is the creation copy-on-write, many filesystems are mounted shared. This means that they propagate back through namespace boundaries. \todo{Finish section on mount namespaces}
+Network namespaces are a relatively recent namespace, added in kernel version X.Y.Z [CN]. They present the optimal namespace for creating a void. Creating a new network namespace immediately creates an entirely empty namespace. That is, the new network namespace has no link whatsoever to the creating network namespace. To add a link, one can create a virtual Ethernet pair, with one adapter in each namespace [CN]. Alternatively, one can create a Wireguard adapter with sending and receiving sockets in one namespace and the VPN adapter in another \citep[§7.3]{donenfeld_wireguard_2017}. This allows for very high levels of separation while still maintaining access to the primary resource - the Internet or wider network.
 
-Network namespaces \todo{Finish section on network namespaces}
+Mount namespaces were the first [CN] namespaces introduced to Linux, in kernel version X.Y.Z [CN]. In contrast to network namespaces, the API is particularly unfriendly to creating a Void. The creation of mount namespaces is copy-on-write, and many filesystems are mounted shared. This means that they propagate changes back through namespace boundaries. As the mount namespace does not allow for creating an entirely new root, extra care must be taken in separating processes. The method taken in this system is mounting a new \texttt{tmpfs} file system in a new namespace, which doesn't propagate to the parent, and using the \texttt{pivot\_root(8)} tool to make this the new root. By pivoting to the \texttt{tmpfs} without bind mounting the old root inside, the old root becomes completely inaccessible from the namespace. Similarly, the \texttt{tmpfs} never appears in the parent namespace.
 
 \todo{Finish section on remaining namespaces}
 
@@ -286,7 +286,7 @@ fn main() { println!("hello world!"); }
 
 GNU gzip \citep{gailly_gzip_2020} is well structured for privilege separation, though doesn't implement it by default. There is a clear split between the processing logic, selecting the items to do work on, and the compression/decompression routines, each of which are handed a pair of input and output file descriptors. This is shown by Watson et al. in \cite{watson_capsicum_2010}.
 
-As C is not an adapted language for multi-entrypoint applications, adapting it is slightly more verbose than the other examples seen. However, the resulting code change is still only X lines, if a bit more intricate. This places the risky compression and decompression routines in full sandboxes, while still allowing the simpler argument processing code ambient authority. The argument processing code needs no additional Linux capabilities to manage this permissioning, as the required capabilities are provided by the shim.
+As C does not have high-level language features for multi-entrypoint applications, adapting it is slightly more verbose than the other examples seen. However, the resulting code change is still only X lines, if a bit more intricate. This places the risky compression and decompression routines in full sandboxes, while still allowing the simpler argument processing code ambient authority. The argument processing code needs no additional Linux capabilities to manage this permissioning, as the required capabilities are provided by the shim.
 
 \subsection{TLS Server}
 
@@ -341,7 +341,7 @@ Capsicum \citep{watson_capsicum_2010} extends UNIX file descriptors in FreeBSD t
 %% identification of the section in the article metadata, and the
 %% consistent spelling of the heading.
 \begin{acks}
-\todo{acknowledgements}
+\todo{Write acknowledgements}
 \end{acks}
 
 %%
