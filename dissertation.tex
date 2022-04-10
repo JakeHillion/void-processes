@@ -219,17 +219,45 @@ A multi-entrypoint application stores the requirements for running it as static 
 
 The shim takes advantage of high levels of privilege to be able to more effectively deprivilege an application than an application with ambient authority could. For example, creating a new network namespace requires \texttt{CAP\_SYS\_ADMIN}, which would give many applications more privilege than they require. By deferring to a shim with extra privileges, this trusted code can be written only once, and avoid conferring more privileges than otherwise required.
 
-\subsection{Preparing a Void}
+\subsection{Building the Void}
 
-Preparing a void for a new process takes advantage of the namespaces feature in Linux. However, many of the namespaces are not designed for this purpose, so this is a more difficult prospect than one might hope.
+Preparing a void for a new process takes advantage of the namespaces feature in Linux. However, many of the namespaces are not designed for this purpose, so this is a more difficult prospect than one might hope. Details of when each namespace was added and some of the relevant features are given in Table \ref{tab:namespaces}.
+
+\begin{table}
+    \centering
+    \begin{tabular}{c|c}
+        Namespace & Kernel Version \\
+         \hline
+        \texttt{cgroup}   & \\
+        \texttt{ipc}      & \\
+        \texttt{network}  & \\
+        \texttt{mount}    & \\
+        \texttt{pid}      & \\
+        \texttt{time}     & \\
+        \texttt{user}     & \\
+        \texttt{uts}      &
+    \end{tabular}
+    \caption{Table showing the kernel version each namespace was added in.}
+    \label{tab:namespaces}
+\end{table}
+
+\subsubsection{Mount namespaces}
 
 Mount namespaces were the first [CN] namespaces introduced to Linux, in kernel version X.Y.Z [CN]. In contrast to network namespaces, the API is particularly unfriendly to creating a Void. The creation of mount namespaces is copy-on-write, and many filesystems are mounted shared. This means that they propagate changes back through namespace boundaries. As the mount namespace does not allow for creating an entirely new root, extra care must be taken in separating processes. The method taken in this system is mounting a new \texttt{tmpfs} file system in a new namespace, which doesn't propagate to the parent, and using the \texttt{pivot\_root(8)} tool to make this the new root. By pivoting to the \texttt{tmpfs} without bind mounting the old root inside, the old root becomes completely inaccessible from the namespace. Similarly, the \texttt{tmpfs} never appears in the parent namespace.
 
+\subsubsection{Network namespaces}
+
 Network namespaces are a relatively recent namespace, added in kernel version X.Y.Z [CN]. They present the optimal namespace for creating a void. Creating a new network namespace immediately creates an entirely empty namespace. That is, the new network namespace has no link whatsoever to the creating network namespace. To add a link, one can create a virtual Ethernet pair, with one adapter in each namespace [CN]. Alternatively, one can create a Wireguard adapter with sending and receiving sockets in one namespace and the VPN adapter in another \citep[§7.3]{donenfeld_wireguard_2017}. This allows for very high levels of separation while still maintaining access to the primary resource - the Internet or wider network.
+
+\subsubsection{Remaining namespaces}
 
 \todo{Finish section on remaining namespaces}
 
-\subsection{Creation in the emptiness}
+\subsection{Something from nothing}
+
+Once a void has been created the goal is to reinsert just enough to run the application, and no more. To allow for running applications in the void with minimal kernel changes, this is done using a mixture of file-descriptor capabilities and adding elements to the namespaces. Capabilities allow for a clean experience where suitable, while adding elements to namespaces creates a more Linux-like experience for the application.
+
+\subsubsection{Files and directories}
 
 \todo{Write section on growing from a void namespace}
 
