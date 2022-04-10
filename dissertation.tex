@@ -223,23 +223,30 @@ The shim takes advantage of high levels of privilege to be able to more effectiv
 
 Preparing a void for a new process takes advantage of the namespaces feature in Linux. However, many of the namespaces are not designed for this purpose, so this is a more difficult prospect than one might hope. Details of when each namespace was added and some of the relevant features are given in Table \ref{tab:namespaces}.
 
-\begin{table}
+\begin{table*}
     \centering
-    \begin{tabular}{c|c}
-        Namespace & Kernel Version \\
-         \hline
-        \texttt{cgroup}   & \\
-        \texttt{ipc}      & \\
-        \texttt{network}  & \\
-        \texttt{mount}    & \\
-        \texttt{pid}      & \\
-        \texttt{time}     & \\
-        \texttt{user}     & \\
-        \texttt{uts}      &
+    \begin{tabular}{c|c|c}
+        Namespace & Date & Kernel Version \\
+        \hline
+        \texttt{cgroup}   & Fri, 18 Mar 2016 15:09:19 -0400 \citep{heo_git_2016} & v4.6 \citep{torvalds_linux_2016} \\
+
+        \texttt{uts}      & 2006-10-02 02:18:17 -0700 & \\
+
+        \texttt{ipc}      & &\\
+
+        \texttt{network}  & &\\
+
+        \texttt{mount}    & &\\
+
+        \texttt{pid}      & &\\
+
+        \texttt{time}     & &\\
+
+        \texttt{user}     & &
     \end{tabular}
-    \caption{Table showing the kernel version each namespace was added in.}
+    \caption{Table showing the date and kernel version each namespace was added.}
     \label{tab:namespaces}
-\end{table}
+\end{table*}
 
 \subsubsection{Mount namespaces}
 

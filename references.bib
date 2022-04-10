@@ -1,4 +1,55 @@
 
+@misc{torvalds_linux_2016,
+	type = {Mailing {List}},
+	title = {Linux 4.6-rc1},
+	url = {https://lore.kernel.org/all/CA+55aFzBncC+F8TEb5KU1QVwA=PCA89mDp1VLNq008oZq8vpJQ@mail.gmail.com/},
+	urldate = {2022-04-10},
+	journal = {lore.kernel.org},
+	author = {Torvalds, Linus},
+	month = mar,
+	year = {2016},
+}
+
+@misc{heo_git_2016,
+	type = {Mailing {List}},
+	title = {[{GIT} {PULL}] cgroup namespace support for v4.6-rc1},
+	url = {https://lore.kernel.org/all/20160318190919.GF20028@mtj.duckdns.org/#r},
+	abstract = {These are changes to implement namespace support for cgroup which has
+been pending for quite some time now.  It is very straight-forward and
+only affects what part of cgroup hierarchies are visible.  After
+unsharing, mounting a cgroup fs will be scoped to the cgroups the task
+belonged to at the time of unsharing and the cgroup paths exposed to
+userland would be adjusted accordingly.},
+	urldate = {2022-04-10},
+	journal = {lore.kernel.org},
+	author = {Heo, Tejun},
+	month = mar,
+	year = {2016},
+}
+
+@misc{hallyn_patch_2006,
+	title = {[{PATCH}] namespaces: utsname: implement {CLONE}\_NEWUTS flag},
+	url = {https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=071df104f808b8195c40643dcb4d060681742e29},
+	abstract = {Implement a CLONE\_NEWUTS flag, and use it at clone and sys\_unshare.},
+	urldate = {2022-04-10},
+	journal = {Linux kernel source tree},
+	author = {Hallyn, Serge E.},
+	month = oct,
+	year = {2006},
+}
+
+@inproceedings{madhavapeddy_jitsu_2015,
+	title = {Jitsu: \{{Just}-{In}-{Time}\} {Summoning} of {Unikernels}},
+	isbn = {978-1-931971-21-8},
+	shorttitle = {Jitsu},
+	url = {https://www.usenix.org/conference/nsdi15/technical-sessions/presentation/madhavapeddy},
+	language = {en},
+	urldate = {2022-03-16},
+	author = {Madhavapeddy, Anil and Leonard, Thomas and Skjegstad, Magnus and Gazagnaire, Thomas and Sheets, David and Scott, Dave and Mortier, Richard and Chaudhry, Amir and Singh, Balraj and Ludlam, Jon and Crowcroft, Jon and Leslie, Ian},
+	year = {2015},
+	pages = {559--573},
+}
+
 @misc{gailly_gzip_2020,
 	title = {Gzip},
 	url = {https://www.gnu.org/software/gzip/},
