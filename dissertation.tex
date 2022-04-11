@@ -108,7 +108,7 @@
 %%
 %% The "title" command has an optional parameter,
 %% allowing the author to define a "short title" to be used in page headers.
-\title[Orchestrating the Void]{Orchestrating the Void: Running bespoke applications in empty namespaces on Linux}
+\title[Void Processes]{Void Processes: Minimising privilege by default on Linux}
 
 %%
 %% The "author" command and its associated commands are used to define
@@ -188,11 +188,21 @@
 
 \section{Introduction}
 
-\todo{Write introduction}
+Void processes take advantage of modern Linux name spaces to attempt to run applications without exposing them to the system itself. Void processes use a mixture of Linux name spaces and file descriptive based capabilities to allow running purpose-built applications without expecting the support of the standard Linux system. During the process of building such a system, gaps in the kernel were exposed, given that this work is at the edge of what main spaces can achieve. This work will go onto detail the process of creating void processes themselves, re-adding features that these processes need to do useful work, and the learnings of what features are missing in the user-space kernel APIs to succeed in creating processes this way.
+
+This work explores the question of what is an operating system by taking a novel approach to running applications with the system exposed in an entirely different way. Rather than limiting the access of a process or set of processes to the operating system, such as in containers, we instead limit the access to the operating system with more explicit methods per process. Interaction between processes is allowed by specifying such interaction statically at compile time, removing any separation between the application developer and the system controlling access to the application, unlike solutions such as SELinux.
 
 \section{Motivation}
 
-\todo{Write motivation}
+This work aims to achieve the following three things:
+
+\begin{itemize}
+    \item Explore the limits use the space Apis in the context of complete process isolation, and consider how they could be improved for this role.
+
+    \item Show that modern type systems and languages can effectively allow privilege separation a little inconvenience to the developer.
+
+    \item provide an extension 10 minutes to better enable complete process isolation.
+\end{itemize}
 
 \subsection{Threat Model}
 
@@ -203,6 +213,12 @@ I present a threat model in which application binaries are trusted absolutely. T
 \section{Background}
 
 \subsection{Mount Namespaces}
+
+Mount namespaces were by far the most challenging part of this project. When adding new features, they continuously raised problems in both API description, expected behaviour, and performance of the tools given. A comparison will be given in this section to two other namespaces, network and UTS, to show the significant differences in the design goals of mount namespaces. Much of the programming issue here comes from a fundamental lack of consistency between the namespaces in Linux, which will be discussed further later in this section.
+
+Comparing to network name spaces, a slightly more modern name space [Table \ref{tab:namespaces}], we see a huge difference in what occurs when a new name space is created. When creating a new network namespace, one is immediately placed into a void, a network namespace containing only a loopback adapter. That is, the process has no ability to interact with the outside network, and no immediate relation to the parent network namespace. To interact with alternative namespaces, one must explicitly create a connection between the two, or move a physical adapter into the new (empty) namespace. Further to this, sockets continue to exist in their initial namespace, allowing for regular file-descriptor passing semantics \citep{biederman_re_2007}. Extending upon this socket behaviour is Wireguard, which creates adapters that may be freely moved between namespaces while continuing to connect externally from their initial parent \citep[§7.3]{donenfeld_wireguard_2017}. Mount namespaces, rather than creating a new and empty namespace, made the choice to create a copy of the parent namespace, in a copy-on-write fashion. That is, after creating a new mount namespace, the mount hierarchy appears much the same as before.
+
+While some other namespaces are copy-on-write, for example UTS namespaces, they do not suffer from the same problem as mount namespaces. Although UTS namespaces are copy-on-write, it is trivial to create a void by setting the hostname of the machine to a constant. This removes any relation to the parent namespace and to the outside machine. Mount namespaces instead maintain a shared pointer with most filesystems, more akin to not creating a new namespace than a copy-on-write namespace.
 
 \section{System Design}
 
@@ -228,13 +244,13 @@ Preparing a void for a new process takes advantage of the namespaces feature in 
     \begin{tabular}{c|c|c}
         Namespace & Date & Kernel Version \\ \hline
 
+        \texttt{uts}      & 2006-10-02 02:18:17 -0700 & \\
+        
+        \texttt{network}  & Wed Sep 12 11:50:50 2007 +0200 \footnote{Rough, see commit \texttt{5f256becd868bf63b70da8f2769033d6734670e9}.} &\\
+        
         \texttt{cgroup}   & Fri, 18 Mar 2016 15:09:19 -0400 \citep{heo_git_2016} & v4.6 \citep{torvalds_linux_2016} \\
 
-        \texttt{uts}      & 2006-10-02 02:18:17 -0700 & \\
-
         \texttt{ipc}      & &\\
-
-        \texttt{network}  & &\\
 
         \texttt{mount}    & &\\
 
