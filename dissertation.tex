@@ -134,11 +134,11 @@
 %% The abstract is a short summary of the work to be presented in the
 %% article.
 \begin{abstract}
-  Operating systems are providing more facilities for process isolation than ever before, realised in technologies such as Containers [CN] and systemd slices [CN]. These systems separate the design of the program from the systems that create privilege separation.
+Operating systems are providing more facilities for process isolation than ever before, realised in technologies such as Containers [CN] and systemd slices [CN]. These systems separate the design of the program from the systems that create privilege separation.
   
-  Multi-Entrypoint Applications bring the privilege separation back into the program itself. By using a trusted  shim and binfmt\_misc [CN], an application started with minimal privileges can achieve full separation. High-level language features provide an easy interface to privilege separation.
+Void Processes take these techniques to the extreme, removing access to everything but syscalls from a process by default. This work focuses on adding back slivers of privilege to achieve functional applications with minimal privilege.
   
-  I present a summary of the privilege separation features in modern Linux, the system design of multi-entrypoint applications, the language front-ends to support it, and an evaluation on a series of example applications. 
+I present a summary of the privilege separation features in modern Linux, the system design of void processes, the language front-ends to support it, and an evaluation on a series of example applications. 
 \end{abstract}
 
 %%
@@ -201,7 +201,7 @@ This work aims to achieve the following three things:
 
     \item Show that modern type systems and languages can effectively allow privilege separation a little inconvenience to the developer.
 
-    \item provide an extension 10 minutes to better enable complete process isolation.
+    \item TODO
 \end{itemize}
 
 \subsection{Threat Model}
