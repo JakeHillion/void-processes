@@ -287,8 +287,6 @@ umount: Device or resource busy
 
 A feature called lazy unmounting or \texttt{MNT\_DETACH} exists for situations where a busy mount still needs to be unmounted. Supplying the \texttt{MNT\_DETACH} flag to \texttt{umount2(2)} causes the mount to be immediately detached from the unified hierarchy, while remaining mounted until the last user has finished with it. While this initially seems like a good solution, this syscall is incredibly dangerous when combined with shared subtrees. This behaviour is shown in Figure \ref{fig:unshare-umount-lazy}, where a lazy (and hence recursive) unmount is combined with a shared subtree to disastrous effect.
 
-This behaviour raises questions about why a shared subtree, which exists as an object, would need to be detached recursively - decreasing the reference count to the shared subtree itself would seem sufficient.
-
 \begin{figure*}
 \begin{minipage}{.45\textwidth}
 
@@ -320,6 +318,23 @@ cat: /proc/mounts: No such file or...
 \label{fig:unshare-umount-lazy}
 \end{figure*}
 
+This behaviour raises questions about why a shared subtree, which exists as an object, would need to be detached recursively - decreasing the reference count to the shared subtree itself would seem sufficient. The inconsistency is best explained by looking at the development timeline for the three features here: mount namespaces, shared subtrees, and recursive lazy unmounts.
+
+When lazy unmounting was added, in September 2001, the author said the following \citep{viro_patch_2001}:
+
+\say{There are only two things to take care of -
+	a) if we detach a parent we should do it for all children
+	b) we should not mount anything on "floating" vfsmounts.
+Both are obviously staisfied for current code (presence of children
+means that vfsmount is busy and we can't mount on something that
+doesn't exist).}
+
+This logic held even in the presence of namespaces, with the intial patchset in February 2001 \citep{viro_patch_2001}, as mounts were not initially shared but duplicated between namespaces. However, when shared subtrees were added in January 2005 \citep{viro_rfc_2005}, this logic stopped holding.
+
+When setting up a container environment, one calls \texttt{pivot\_root(2)} to replace the old root with a new root for the container. Then, the old root may be unmounted. Oftentimes the solution is to exec a binary in the new root first, meaning that the old root is no longer in use and may be unmounted. This works, as old root is only a reference in this namespace, and hence may be unmounted with children - the vfsmount in this namespace is not busy, in contradiction to the quotation.
+
+If, instead, one wishes to continue running the existing binary, this is possible with lazy unmounting. However, the kernel only exposes a recursive lazy unmount. With shared subtrees, this results in destroying the parent tree. While this is avoidable by removing the shared propagation from the subtree before unmounting, the choice to have \texttt{MNT\_DETACH} aggressively cross shared subtrees can be highly confusing, and perhaps undersired behaviour in a world with shared subtrees.
+
 \section{System Design}
 
 \begin{figure}
@@ -344,15 +359,15 @@ Preparing a void for a new process takes advantage of the namespaces feature in 
     \begin{tabular}{c|c|c}
         Namespace & Date & Kernel Version \\ \hline
 
+        \texttt{mount}    & Sat, 24 Feb 2001 \citep{viro_patchcft_2001} &\\
+
         \texttt{uts}      & 2006-10-02 02:18:17 -0700 & \\
         
-        \texttt{network}  & Wed Sep 12 11:50:50 2007 +0200 \footnote{Rough, see commit \texttt{5f256becd868bf63b70da8f2769033d6734670e9}.} &\\
+        \texttt{network}  & Wed Sep 12 2007 \footnote{Rough, see commit \texttt{5f256becd868bf63b70da8f2769033d6734670e9}.} &\\
         
-        \texttt{cgroup}   & Fri, 18 Mar 2016 15:09:19 -0400 \citep{heo_git_2016} & v4.6 \citep{torvalds_linux_2016} \\
+        \texttt{cgroup}   & Fri, 18 Mar 2016 \citep{heo_git_2016} & v4.6 \citep{torvalds_linux_2016} \\
 
         \texttt{ipc}      & &\\
-
-        \texttt{mount}    & &\\
 
         \texttt{pid}      & &\\
 
