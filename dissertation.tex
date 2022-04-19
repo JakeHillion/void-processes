@@ -215,6 +215,7 @@ Mount namespaces were by far the most challenging part of this project. When add
 Comparing to network namespaces, a slightly more modern namespace [Table \ref{tab:namespaces}], we see a huge difference in what occurs when a new namespace is created. When creating a new network namespace, one is immediately placed into a void, a network namespace containing only a loopback adapter. That is, the process has no ability to interact with the outside network, and no immediate relation to the parent network namespace. To interact with alternate namespaces, one must explicitly create a connection between the two, or move a physical adapter into the new (empty) namespace. Mount namespaces, rather than creating a new and empty namespace, made the choice to create a copy of the parent namespace, in a copy-on-write fashion. That is, after creating a new mount namespace, the mount hierarchy appears much the same as before.
 
 \subsubsection{Shared Subtrees}
+\label{sec:shared-subtrees}
 
 While some other namespaces are copy-on-write, for example UTS namespaces, they do not present the same problem as mount namespaces. Although UTS namespaces are copy-on-write, it is trivial to create a void by setting the hostname of the machine to a constant. This removes any relation to the parent namespace and to the outside machine. Mount namespaces instead maintain a shared pointer with most filesystems, more akin to not creating a new namespace than a copy-on-write namespace.
 
@@ -271,7 +272,7 @@ Referring again to network namespaces, sockets continue to exist in their initia
 Something which behaves differently is the memory mapping of a currently running process's binary. Considering the example in Listing \ref{lst:unshare-umount}, which shows a short C program and the result of running it, it is seen that the \texttt{/} mount is busy when attempting the unmount. Given that the process was created in the parent namespace, the behaviour of file descriptors would suggest that the process would maintain a link to the parent namespace for its own memory mapped regions. However, the fact that the otherwise empty namespace has a busy mount shows that this is not the case.
 
 \lstset{caption={Behaviour when attempting to unmount / after an unshare.}}
-\begin{lstlisting}[float,label={lst:unshare-unmount}]
+\begin{lstlisting}[float,label={lst:unshare-umount}]
 int main() {
 	if (unshare(CLONE_NEWNS))
 		perror("unshare");
@@ -355,27 +356,56 @@ The shim takes advantage of high levels of privilege to be able to more effectiv
 Preparing a void for a new process takes advantage of the namespaces feature in Linux. However, many of the namespaces are not designed for this purpose, so this is a more difficult prospect than one might hope. Details of when each namespace was added and some of the relevant features are given in Table \ref{tab:namespaces}.
 
 \begin{table*}
-    \centering
-    \begin{tabular}{c|c|c}
-        Namespace & Date & Kernel Version \\ \hline
-
-        \texttt{mount}    & Sat, 24 Feb 2001 \citep{viro_patchcft_2001} &\\
-
-        \texttt{uts}      & 2006-10-02 02:18:17 -0700 & \\
-        
-        \texttt{network}  & Wed Sep 12 2007 \footnote{Rough, see commit \texttt{5f256becd868bf63b70da8f2769033d6734670e9}.} &\\
-        
-        \texttt{cgroup}   & Fri, 18 Mar 2016 \citep{heo_git_2016} & v4.6 \citep{torvalds_linux_2016} \\
-
-        \texttt{ipc}      & &\\
-
-        \texttt{pid}      & &\\
-
-        \texttt{time}     & &\\
-
-        \texttt{user}     & &
-    \end{tabular}
     \caption{Table showing the date and kernel version each namespace was added.}
+
+    \begin{minipage}{\textwidth}
+    \begin{center}
+    \begin{tabular}{c|l|c|c}
+        Namespace & CoW & Date & Kernel Version \\ \hline
+
+        \texttt{mount}
+            & $\boxtimes$ \footnote{Shared namespaces make for unique behaviour, see §\ref{sec:shared-subtrees}.}
+            & 24th Feb 2001 \citep{viro_patchcft_2001}
+            & after 2.4.2 before 2.6.19 \\
+
+        \texttt{uts}
+            & $\boxtimes$
+            & 2nd October 2006 \footnote{\url{https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=4865ecf1315b450ab3317a745a6678c04d311e40}}
+            & 2.6.19 \footnote{\url{https://kernelnewbies.org/Linux_2_6_19}} \\
+            
+        \texttt{ipc}
+            & $\square$
+            & 2nd Oct 2006 \footnote{\url{https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=25b21cb2f6d69b0475b134e0a3e8e269137270fa}}
+            & 2.6.19 \footnote{\url{https://kernelnewbies.org/Linux_2_6_19}} \\
+        
+        \texttt{network}
+            & $\square$
+            & 12th September 2007 \footnote{Rough, see commit \texttt{5f256becd868bf63b70da8f2769033d6734670e9}.}
+            & \\
+        
+        \texttt{cgroup}
+            & $\square$ \footnote{cgroup namespaces provide a virtualised view of the unified cgroup namespace and do not allow private modification.}
+            & 18th March 2016 \citep{heo_git_2016}
+            & v4.6 \citep{torvalds_linux_2016} \\
+
+        \texttt{pid}
+            & $\square$
+            &
+            & 2.6.19 (maybe?) \\
+
+        \texttt{time}
+            & $\boxtimes$
+            &
+            & \\
+
+        \texttt{user}
+            & $\square$
+            &
+            &
+    \end{tabular}
+    \end{center}
+    \end{minipage}
+    
     \label{tab:namespaces}
 \end{table*}
 
