@@ -361,7 +361,7 @@ Preparing a void for a new process takes advantage of the namespaces feature in 
 
     \begin{minipage}{\textwidth}
     \begin{center}
-    \begin{tabular}{c|l|c|c}
+    \begin{tabular}{c|l|l|l}
         Namespace & CoW & Date & Kernel Version \\ \hline
 
         \texttt{mount}
@@ -371,28 +371,28 @@ Preparing a void for a new process takes advantage of the namespaces feature in 
             
         \texttt{ipc}
             & $\square$
-            & 2nd October 2006 \footnote{\url{https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=25b21cb2f6d69b0475b134e0a3e8e269137270fa}}
+            & 2nd October 2006 \citep{korotaev_patch_2006}
             & 2.6.19 \citep{noauthor_linux_2006} \\
 
         \texttt{uts}
             & $\boxtimes$
-            & 2nd October 2006 \footnote{\url{https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=4865ecf1315b450ab3317a745a6678c04d311e40}}
+            & 2nd October 2006 \citep{hallyn_patch_2006}
             & 2.6.19 \citep{noauthor_linux_2006} \\
             
         \texttt{user}
             & $\square$
-            & 15th July 2007 \footnote{\url{https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=acce292c82d4d82d35553b928df2b0597c3a9c78}}
-            & 2.6.23 \footnote{\url{https://kernelnewbies.org/Linux_2_6_23}} \\
+            & 15th July 2007 \citep{le_goater_user_2007}
+            & 2.6.23 \citep{noauthor_linux_2007} \\
             
         \texttt{network}
             & $\square$
-            & 10th October 2007 \footnote{Rough, see commit \url{https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=5f256becd868bf63b70da8f2769033d6734670e9}}
-            & 2.6.24 \footnote{\url{https://kernelnewbies.org/Linux_2_6_24##PID_and_network_namespaces}} \\
+            & 10th October 2007 \citep{biederman_net_2007}
+            & 2.6.24 \citep{noauthor_linux_2008} \\
             
         \texttt{pid}
             & $\square$
-            & 2nd October 2006 \footnote{\url{https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=3fbc96486459324e182717b03c50c90c880be6ec}}
-            & 2.6.24 \footnote{\url{https://kernelnewbies.org/Linux_2_6_24##PID_and_network_namespaces}} \\
+            & 2nd October 2006 \citep{bhattiprolu_patch_2006}
+            & 2.6.24 \citep{noauthor_linux_2008} \\
         
         \texttt{cgroup}
             & $\square$ \footnote{cgroup namespaces provide a virtualised view of the unified cgroup namespace and do not allow private modification.}
@@ -401,8 +401,8 @@ Preparing a void for a new process takes advantage of the namespaces feature in 
 
         \texttt{time}
             & $\boxtimes$
-            & 12th November 2019 \footnote{\url{https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=769071ac9f20b6a447410c7eaa55d1a5233ef40c}}
-            & 5.6 \footnote{\url{https://kernelnewbies.org/Linux_5.6##Time_Namespaces}}
+            & 12th November 2019 \citep{vagin_ns_2020}
+            & 5.6 \citep{noauthor_linux_2020}
 
     \end{tabular}
     \end{center}

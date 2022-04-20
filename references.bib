@@ -1,4 +1,119 @@
 
+@misc{biederman_net_2007,
+	title = {[{NET}]: {Basic} network namespace infrastructure.},
+	url = {https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=5f256becd868bf63b70da8f2769033d6734670e9},
+	abstract = {This is the basic infrastructure needed to support network
+namespaces.  This infrastructure is:
+- Registration functions to support initializing per network
+  namespace data when a network namespaces is created or destroyed.
+
+- struct net.  The network namespace data structure.
+  This structure will grow as variables are made per network
+  namespace but this is the minimal starting point.
+
+- Functions to grab a reference to the network namespace.
+  I provide both get/put functions that keep a network namespace
+  from being freed.  And hold/release functions serve as weak references
+  and will warn if their count is not zero when the data structure
+  is freed.  Useful for dealing with more complicated data structures
+  like the ipv4 route cache.
+
+- A list of all of the network namespaces so we can iterate over them.
+
+- A slab for the network namespace data structure allowing leaks
+  to be spotted.},
+	urldate = {2022-04-20},
+	journal = {Linux kernel source tree},
+	author = {Biederman, Eric W.},
+	month = oct,
+	year = {2007},
+}
+
+@misc{vagin_ns_2020,
+	title = {ns: {Introduce} {Time} {Namespace}},
+	url = {https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=769071ac9f20b6a447410c7eaa55d1a5233ef40c},
+	abstract = {Time Namespace isolates clock values.},
+	urldate = {2022-04-20},
+	journal = {Linux kernel source tree},
+	author = {Vagin, Andrei},
+	month = jan,
+	year = {2020},
+}
+
+@misc{bhattiprolu_patch_2006,
+	title = {[{PATCH}] {Define} struct pspace},
+	url = {https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=3fbc96486459324e182717b03c50c90c880be6ec},
+	abstract = {Define a per-container pid space object.  And create one instance of this object, init\_pspace, to define the entire pid space.  Subsequent patches will provide/use interfaces to create/destroy pid spaces.},
+	urldate = {2022-04-20},
+	journal = {Linux kernel source tree},
+	author = {Bhattiprolu, Sukadev},
+	month = oct,
+	year = {2006},
+}
+
+@misc{le_goater_user_2007,
+	title = {user namespace: add the framework},
+	url = {https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=acce292c82d4d82d35553b928df2b0597c3a9c78},
+	abstract = {Basically, it will allow a process to unshare its user\_struct table, resetting at the same time its own user\_struct and all the associated accounting.},
+	urldate = {2022-04-20},
+	journal = {Linux kernel source tree},
+	author = {Le Goater, Cedric},
+	month = jul,
+	year = {2007},
+}
+
+@misc{hallyn_patch_2006,
+	title = {[{PATCH}] namespaces: utsname: implement utsname namespaces},
+	url = {https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=4865ecf1315b450ab3317a745a6678c04d311e40},
+	abstract = {This patch defines the uts namespace and some manipulators. Adds the uts namespace to task\_struct, and initializes a system-wide init namespace.},
+	urldate = {2022-04-20},
+	journal = {Linux kernel source tree},
+	author = {Hallyn, Serge E.},
+	month = oct,
+	year = {2006},
+}
+
+@misc{korotaev_patch_2006,
+	title = {[{PATCH}] {IPC} namespace core},
+	url = {https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=25b21cb2f6d69b0475b134e0a3e8e269137270fa},
+	abstract = {This patch set allows to unshare IPCs and have a private set of IPC objects (sem, shm, msg) inside namespace.  Basically, it is another building block of containers functionality.},
+	urldate = {2022-04-20},
+	journal = {Linux kernel source tree},
+	author = {Korotaev, Kirill},
+	month = oct,
+	year = {2006},
+}
+
+@misc{noauthor_linux_2020,
+	type = {Wiki},
+	title = {Linux {Version} 5.6 {Changelog}},
+	url = {https://kernelnewbies.org/Linux_5.6},
+	urldate = {2022-04-20},
+	journal = {Linux Kernel Newbies},
+	month = mar,
+	year = {2020},
+}
+
+@misc{noauthor_linux_2008,
+	type = {Wiki},
+	title = {Linux {Version} 2.6.24 {Changelog}},
+	url = {https://kernelnewbies.org/Linux_2_6_24},
+	urldate = {2022-04-20},
+	journal = {Linux Kernel Newbies},
+	month = jan,
+	year = {2008},
+}
+
+@misc{noauthor_linux_2007,
+	type = {Wiki},
+	title = {Linux {Version} 2.6.23 {Changelog}},
+	url = {https://kernelnewbies.org/Linux_2_6_23},
+	urldate = {2022-04-20},
+	journal = {Linux Kernel Newbies},
+	month = oct,
+	year = {2007},
+}
+
 @misc{noauthor_linux_2006,
 	type = {Wiki},
 	title = {Linux {Version} 2.6.19 {Changelog}},
@@ -108,17 +223,6 @@ userland would be adjusted accordingly.},
 	author = {Heo, Tejun},
 	month = mar,
 	year = {2016},
-}
-
-@misc{hallyn_patch_2006,
-	title = {[{PATCH}] namespaces: utsname: implement {CLONE}\_NEWUTS flag},
-	url = {https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=071df104f808b8195c40643dcb4d060681742e29},
-	abstract = {Implement a CLONE\_NEWUTS flag, and use it at clone and sys\_unshare.},
-	urldate = {2022-04-10},
-	journal = {Linux kernel source tree},
-	author = {Hallyn, Serge E.},
-	month = oct,
-	year = {2006},
 }
 
 @inproceedings{madhavapeddy_jitsu_2015,
