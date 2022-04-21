@@ -195,8 +195,11 @@ Void processes take advantage of modern Linux namespaces to attempt to run appli
 This work explores the question of what is an operating system by taking a novel approach to running applications with the system exposed in an entirely different way. Rather than limiting the access of a process or set of processes to the operating system, such as in containers, we instead limit the access to the operating system with more explicit methods per process. Interaction between processes is allowed by specifying such interaction statically at compile time, removing any separation between the application developer and the system controlling access to the application, unlike solutions such as SELinux.
 
 \section{Motivation}
+\label{sec:motivation}
 
 This work aims to explore the limits of the Linux userspace APIs in the context of complete process isolation, producing a software ecosystem to support running applications with fully minimised privilege. Further, discussion will be made of which parts of the API are well-suited and which are not, and how they might be better designed. Finally, the performance of absolute separation is evaluated, to find out at what cost this can be achieved in the current kernel.
+
+Void processes aim to serve a different purpose than containers. Rather than virtualising a different operating system with the same kernel, void processes aim to remove all but what is necessary to run the application from the current operating system. The cut down appearance of the OS is still the same OS, rather than bringing in new utilities and libraries from perhaps a different OS. It would be possible to include this feature as an extension, but it is not the primary goal. This difference is important when deciding the features of the application, particularly the decision to exclude time namespaces (§\f{sec:treime-namespaces}).
 
 \subsection{Threat Model}
 \label{section:threat-model}
@@ -419,29 +422,33 @@ Mount namespaces were the first [Table \ref{tab:namespaces}] namespaces introduc
 
 \todo{ipc namespaces}
 
-\subsubsection{UTS namespaces}
+\subsubsection{uts namespaces}
 
-\todo{UTS namespaces}
+\todo{uts namespaces}
+
+\subsubsection{user namespaces}
+
+\todo{user namespaces}
 
 \subsubsection{Network namespaces}
 
-Network namespaces are a relatively recent namespace, added in kernel version X.Y.Z [CN]. They present the optimal namespace for creating a void. Creating a new network namespace immediately creates an entirely empty namespace. That is, the new network namespace has no link whatsoever to the creating network namespace. To add a link, one can create a virtual Ethernet pair, with one adapter in each namespace [CN]. Alternatively, one can create a Wireguard adapter with sending and receiving sockets in one namespace and the VPN adapter in another \citep[§7.3]{donenfeld_wireguard_2017}. This allows for very high levels of separation while still maintaining access to the primary resource - the Internet or wider network.
-
-\subsubsection{cgroup namespaces}
-
-\todo{cgroup namespaces}
+Network namespaces were added in kernel version 2.6.24 \citep{noauthor_linux_2008}, some time after the initial namespace boom. They present the optimal namespace for creating a void. Creating a new network namespace immediately creates an entirely empty namespace. That is, the new network namespace has no link whatsoever to the creating network namespace. To add a link, one can create a virtual Ethernet pair, with one adapter in each namespace [CN]. Alternatively, one can create a Wireguard adapter with sending and receiving sockets in one namespace and the VPN adapter in another \citep[§7.3]{donenfeld_wireguard_2017}. This allows for very high levels of separation while still maintaining access to the primary resource - the Internet or wider network.
 
 \subsubsection{pid namespaces}
 
 \todo{pid namespaces}
 
+\subsubsection{cgroup namespaces}
+
+\todo{cgroup namespaces}
+
 \subsubsection{time namespaces}
 
-\todo{time namespaces}
+Time namespaces are the final namespace added at the time of writing, added in kernel version 5.6 \citep{noauthor_linux_2020}. The motivation for adding time namespaces is given in the manual page [CN]:
 
-\subsubsection{user namespaces}
+\say{The  motivation  for adding time namespaces was to allow the monotonic and boot-time clocks to maintain consistent values during container migration and checkpoint/restore.}
 
-\todo{user namespaces}
+That is, time namespaces virtualise the appearance of system uptime to processes, rather than attempting to virtualise the wall clock time.
 
 \subsection{Filling the void}
 
