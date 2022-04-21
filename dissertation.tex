@@ -206,7 +206,7 @@ Void processes aim to serve a different purpose than containers. Rather than vir
 
 I present a threat model in which application binaries are trusted absolutely. That is, the software provider had no ill intent, and once the binary is on disk, it will not change without permission. This means that one can trust the binary to set up its own security, as it is protecting not against malice by its own developers, but instead bugs in the software.
 
-\todo{Finalise threat model}
+\todo{Expand and finalise threat model}
 
 \section{Background}
 
@@ -356,11 +356,12 @@ A multi-entrypoint application stores the requirements for running it as static 
 The shim takes advantage of high levels of privilege to be able to more effectively deprivilege an application than an application with ambient authority could. For example, creating a new network namespace requires \texttt{CAP\_SYS\_ADMIN}, which would give many applications more privilege than they require. By deferring to a shim with extra privileges, this trusted code can be written only once, and avoid conferring more privileges than otherwise required.
 
 \subsection{Building the Void}
+\label{sec:building-the-void}
 
 Preparing a void for a new process takes advantage of the namespaces feature in Linux. However, many of the namespaces are not designed for this purpose, so this is a more difficult prospect than one might hope. Details of when each namespace was added and some of the relevant features are given in Table \ref{tab:namespaces}.
 
 \begin{table*}
-    \caption{Table showing the date and kernel version each namespace was added. The date provides the first commit where they appeared date of creation, and the kernel version the kernel release they appear in the changelog of. Namespaces are hence ordered by kernel version then alphabetically.}
+    \caption{Table showing the date and kernel version each namespace was added. The date provides the first commit where they appeared date of creation, and the kernel version the kernel release they appear in the changelog of. Namespaces are ordered by kernel version then alphabetically. A checkbox is provided for whether the namespace displays copy-on-write behaviour, discussed in more detail in Section \ref{sec:building-the-void}.}
 
     \begin{minipage}{\textwidth}
     \begin{center}
@@ -446,6 +447,10 @@ pid namespaces add a mapping from the process IDs inside the namespace to proces
 
 Although pid namespaces work quite well for creating a void from the perspective of the inside process, some care must be taken in the implementation, as the actions of pid namespaces are highly affected by others. Some examples of this slightly unusual behaviour are shown in Listing \ref{lst:unshare-pid}.
 
+The first behaviour shown is that an \texttt{unshare(CLONE\_PID)} call followed immediately by an \text{exec} does not have the desired behaviour. The reason for this is that the first process created in the new namespace is given PID 1 and acts as an init process. That is, whichever process the shell spawns first becomes the init process of the namespace, and when that process dies, the namespace can no longer create new processes. This behaviour is avoided by either calling \texttt{unshare/fork}, or utilising \texttt{clone(2)} instead. The \texttt{unshare(3)} binary provides a fork flag to solve this, while the implementation of the void orchestrator uses \texttt{clone(2)} which combines the two into a single syscall.
+
+Secondly, we see that even in a shell that appears to be working correctly, processes from outside of the new pid namespace are still visible. This behaviour occurs because the mount of \texttt{/proc} visible to the process in the new pid namespace is the same as the init process. This is solved by remounting \texttt{/proc}, available to \texttt{unshare(3)} with the \texttt{--mount-proc} flag. Care must be taken that this mount is completed in a new mount namespace, or else processes outside of the pid namespace will be affected. The void orchestrator again avoids this by voiding the mount namespace entirely, so any access to proc must be either bound to outside the namespace, or freshly mounted.
+
 \lstset{caption={Unshare behaviour with pid namespaces, with and without forking and remounting proc.}}
 \begin{lstlisting}[float,label={lst:unshare-pid}]
 $ unshare -p
@@ -491,7 +496,7 @@ Once a void has been created the goal is to reinsert enough to run the applicati
 
 \subsubsection{Files and directories} There are two options to provide access to files and directories in the void. Firstly, for a single file, an already open file descriptor can be offered. Consider the TLS broker of a TLS server with a persistent certificate and keyfile. Only these files are required to correctly run the application - no view of a filesystem is necessary. Providing an already opened file descriptor gives the process a capability to those files while requiring no concept of a filesystem, allowing that to remain a complete void. This is possible because of the semantics of file descriptor passing across namespaces - the file descriptor remains a capability, regardless of moving into a namespace without access to the file in question.
 
-Alternatively, files and directories can be mounted in the void namespace. This supports three things which the capabilities do not: directories, dynamic linking, and applications which have not been adapted to use file descriptors. Firstly, the existing \texttt{openat(2)} calls are not suitable by default to treat directory file descriptors as capabilities, as they allow the search path to be absolute. This means that a process with a directory file descriptor in another namespace can access any files in that namespace [RN] by supplying an absolute path. Secondly, dynamic linking is best served by binding files, as these read only copies and the trusted binaries ensure that only the required libraries can be linked against. Finally, support for individual required files can be added by using file descriptors, but many applications will not trivially support it. Binding files allows for a final form of backwards compatibility.
+Alternatively, files and directories can be mounted in the void namespace. This supports three things which the capabilities do not: directories, dynamic linking, and applications which have not been adapted to use file descriptors. Firstly, the existing \texttt{openat(2)} calls are not suitable by default to treat directory file descriptors as capabilities, as they allow the search path to be absolute. This means that a process with a directory file descriptor in another namespace can access any files in that namespace [RN] by supplying an absolute path. Secondly, dynamic linking is best served by binding files, as these read only copies and the trusted binaries ensure that only the required libraries can be linked against. Finally, support for individual required files can be added by using file descriptors, but many applications will not trivially support it. Binding files allows for a form of backwards compatibility.
 
 \subsubsection{Networking}
 
@@ -584,9 +589,7 @@ Capsicum \citep{watson_capsicum_2010} extends UNIX file descriptors in FreeBSD t
 
 \subsection{Dynamic Linking}
 
-Dynamic linking works correctly under the shim, however, it currently requires a high level of manual input. Given that the threat model in Section \ref{section:threat-model} specifies trusted binaries, it is feasible to add a pre-linking phase which mounts read-only libraries automatically in the environment for each spawned process.
-
-\todo{Finish section on dynamic linking future work}
+Dynamic linking works correctly under the shim, however, it currently requires a high level of manual input. Given that the threat model in Section \ref{section:threat-model} specifies trusted binaries, it is feasible to add a pre-spawning phase which appends read-only libraries to the specification for each spawned process automatically before creating appropriate voids. This would allow anything which can link correctly on the host system to link correctly in void processes.
 
 \section{Conclusion}
 
