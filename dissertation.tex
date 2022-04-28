@@ -365,14 +365,14 @@ Preparing a void for a new process takes advantage of the namespaces feature in 
 
     \begin{minipage}{\textwidth}
     \begin{center}
-    \begin{tabular}{c|l|l|l}
+    \begin{tabular}{l|l|l|l}
         Namespace & CoW & Date & Kernel Version \\ \hline
 
         \texttt{mount}
             & $\boxtimes$ \footnote{Shared namespaces make for unique behaviour, see §\ref{sec:shared-subtrees}.}
             & 24th February 2001 \citep{viro_patchcft_2001}
             & 2.5.2 \citep{torvalds_linux_2002} \\
-            
+
         \texttt{ipc}
             & $\square$
             & 2nd October 2006 \citep{korotaev_patch_2006}
@@ -382,22 +382,22 @@ Preparing a void for a new process takes advantage of the namespaces feature in 
             & $\boxtimes$
             & 2nd October 2006 \citep{hallyn_patch_2006}
             & 2.6.19 \citep{noauthor_linux_2006} \\
-            
+
         \texttt{user}
             & $\square$
             & 15th July 2007 \citep{le_goater_user_2007}
             & 2.6.23 \citep{noauthor_linux_2007} \\
-            
+
         \texttt{network}
             & $\square$
             & 10th October 2007 \citep{biederman_net_2007}
             & 2.6.24 \citep{noauthor_linux_2008} \\
-            
+
         \texttt{pid}
             & $\square$
             & 2nd October 2006 \citep{bhattiprolu_patch_2006}
             & 2.6.24 \citep{noauthor_linux_2008} \\
-        
+
         \texttt{cgroup}
             & $\square$ \footnote{cgroup namespaces provide a virtualised view of the unified cgroup namespace and do not allow private modification.}
             & 18th March 2016 \citep{heo_git_2016}
@@ -417,7 +417,7 @@ Preparing a void for a new process takes advantage of the namespaces feature in 
 
 \subsubsection{Mount namespaces}
 
-Mount namespaces were the first [Table \ref{tab:namespaces}] namespaces introduced to Linux, in kernel version 2.5.2 [CN]. In contrast to network namespaces, the API is particularly unfriendly to creating a Void. The creation of mount namespaces is copy-on-write, and many filesystems are mounted shared. This means that they propagate changes back through namespace boundaries. As the mount namespace does not allow for creating an entirely new root, extra care must be taken in separating processes. The method taken in this system is mounting a new \texttt{tmpfs} file system in a new namespace, which doesn't propagate to the parent, and using the \texttt{pivot\_root(8)} command to make this the new root. By pivoting to the \texttt{tmpfs} without bind mounting the old root inside, the old root becomes completely inaccessible from the namespace. Similarly, the \texttt{tmpfs} never appears in the parent namespace. Finally, after ensuring the old root is set to \texttt{MNT\_PRIVATE} to avoid propagation (more details in §\ref{sec:shared-subtrees}), the old root can be lazily detached. This allows the binary from the parent namespace, the shim in this case, to continue running correctly. Any new processes only have access to the materials in the \texttt{tmpfs} void.
+Mount namespaces were the first [Table \ref{tab:namespaces}] namespaces introduced to Linux, in kernel version 2.5.2 [CN]. In contrast to network namespaces, the API is particularly unfriendly to creating a Void. The creation of mount namespaces is copy-on-write, and many filesystems are mounted shared. This means that they propagate changes back through namespace boundaries. As the mount namespace does not allow for creating an entirely empty root, extra care must be taken in separating processes. The method taken in this system is mounting a new \texttt{tmpfs} file system in a new namespace, which doesn't propagate to the parent, and using the \texttt{pivot\_root(8)} command to make this the new root. By pivoting to the \texttt{tmpfs}, the old root exists only has one reference in the otherwise empty \texttt{tmpfs}. Finally, after ensuring the old root is set to \texttt{MNT\_PRIVATE} to avoid propagation (more details in §\ref{sec:shared-subtrees}), the old root can be lazily detached. This allows the binary from the parent namespace, the shim in this case, to continue running correctly. Any new processes only have access to the materials in the \texttt{tmpfs} void. This new \texttt{tmpfs} never appears in the parent namespace, hiding the void contents from the parent namespace.
 
 \subsubsection{IPC namespaces}
 
@@ -435,7 +435,12 @@ As the copied value does give information about the world outside of the void pr
 
 \subsubsection{user namespaces}
 
-\todo{user namespaces}
+User namespaces provide isolation of security between processes. They isolate uids, gids, the root directory, keys and capabilities.
+
+User namespaces cause problems when combined with creating a void. Creating a void requires cooperation from all namespaces (excluding time namespaces, §\ref{sec:time-namespaces}), which is limited under a user namespace. Creating a user namespace allows for creation of the other namespaces, meaning that a \texttt{clone(3)} call with user namespaces creates it first. This allows for creating so called userspace containers [CN]. However, it reduces the ability of the void orchestrator to further strip the new namespaces. Specifically, bind mounting and opening files that the user doesn't have access to becomes impossible.
+
+\todo{Check in code whether creating a user namespace with full capabilities is actually possible.}
+\todo{Finish writing about user namespaces.}
 
 \subsubsection{Network namespaces}
 
@@ -477,7 +482,17 @@ $ unshare --fork --mount-proc -p
 
 \subsubsection{cgroup namespaces}
 
-\todo{cgroup namespaces}
+cgroup namespaces provide limited isolation of the cgroup hierarchy between processes. Rather than showing the full cgroups hierarchy, they instead show only the part of the hierarchy that the process was in on creation of the new cgroup namespace. Correctly creating a void is hence as follows:
+
+\begin{enumerate}
+    \item Create an empty cgroup leaf.
+    \item Move the new process to that leaf.
+    \item Unshare the cgroup namespace.
+\end{enumerate}
+
+This process excludes the cgroup namespace from the initial \texttt{clone(3)} call, as the process must be moved before creating the new namespace. By following this series, the process in the void may only see the leaf which contains only itself, limiting access to the host system.  This is the approach taken in this piece of work.
+
+Although good isolation of the host system from the void process is provided, the void process is in no way hidden from the host. There exists only one cgroups v2 hierarchy on a system (cgroups v1 are ignored for clarity), where resources are delegated through each. This means that all processes contained within the hierarchy must appear in the primary hierarchy, such that the distribution of the central set of resources can be centrally controlled. This behaviour is similar to the aforementioned pid namespaces, where each process has a distinct pid in each of its parents.
 
 \subsubsection{time namespaces}
 \label{sec:time-namespaces}
