@@ -514,7 +514,14 @@ Alternatively, files and directories can be mounted in the void namespace. This 
 
 \subsubsection{Networking}
 
-\todo{Write about reintroducing networking to the void.}
+Reintroducing networking to a void follows a similar capability-based paradigm to reintroducing files. Rather than providing the full Linux networking view to a void process, it is instead handed a file descriptor that already has the requisite networking permissions. A capability for an inbound networking socket can be requested statically in the application's specification, which fits well with the earlier specified threat model. This socket remains open and allows the application to continuously accept requests, generating the appropriate socket for each request within the application itself, which can be dealt with through the mechanisms provided - specifically file descriptor based sockets.
+
+Outbound networking is more difficult to re-add to a void than inbound networking. The approach that containerisation solutions such as Docker take is using NAT with bridged adapters by default [CN]. That is, the container is provided an internal IP address that allows access to all networks via the host. Virtual machine solutions take a similar approach, creating bridged Ethernet adapters on the outside network or on a private NAT by default. Each of these approaches give the container/machine the appearance of unbounded outbound access, relying on firewalls to limit this afterwards. This does not fit well with the ethos of creating a void, which is aiming for minimum privilege by default. An ideal solution would provide add in precise network access to the void, rather than adding all access and restricting it in post. This is achieved with inbound sockets by providing the precise and already connected socket to an otherwise empty network namespace, which does not support creating inbound sockets of its own.
+
+Consideration is given to providing outbound access in the same way as inbound - with statically created and passed sockets. For example, a socket to a database could be specified in the specification, or even one per worker process. The downside of this approach is that the socket lifecycle is still handled by the kernel. While this would work well with UDP sockets, TCP sockets can fail because the remote was closed or because a timeout was hit. 
+
+
+\iffalse % disable \section{Language Frontends}
 
 \section{Language Frontends}
 
@@ -543,6 +550,9 @@ Firstly, the encrypt entrypoint is created. This is a regular Rust function whic
 Second is the ordinary main function for the application. This is also tagged as an entrypoint, allowing the library to help out with more calls. The example given here is that of the encrypt method, which uses the API seen above. The use of macros here allows the call to encrypt to remain type safe, even though the call must pass through an external interface (the shim itself).
 
 A significant benefit to this approach is the ease of disabling the multi-entrypoint application. By turning the entrypoint macro into identity with a crate feature, the code is compiled without the aid of the multi-entrypoint shim. This allows for significantly easier debugging, as the application follows a single execution path, rather than needing to be debugged as a distributed application.
+
+\fi % end disable \section{Language Frontends}
+
 
 \section{Example Applications}
 
