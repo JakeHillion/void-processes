@@ -109,7 +109,7 @@
 %%
 %% The "title" command has an optional parameter,
 %% allowing the author to define a "short title" to be used in page headers.
-\title[Void Processes]{Void Processes: Minimising privilege by default on Linux}
+\title[Void Processes]{Void Processes: Minimising privilege by default}
 
 %%
 %% The "author" command and its associated commands are used to define
@@ -136,8 +136,8 @@
 %% The abstract is a short summary of the work to be presented in the
 %% article.
 \begin{abstract}
-Operating systems are providing more facilities for process isolation than ever before, realised in technologies such as Containers [CN] and systemd slices [CN]. These systems separate the design of the program from the systems that create privilege separation. Void Processes take these techniques to the extreme, removing access to everything but syscalls from a process by default. This work focuses on adding back slivers of privilege to achieve functional applications with minimal privilege.
-  
+Operating systems are providing more facilities for process isolation than ever before, realised in technologies such as Docker containers \citep{merkel_docker_2014} and systemd slices \citep{the_systemd_authors_systemdslice_2022}. These systems separate the design of the program from the systems that create privilege separation. Void Processes take these techniques to the extreme, removing access to everything but syscalls from a process by default. This work focuses on adding back slivers of privilege to achieve functional applications with minimal privilege.
+
 I present a summary of the privilege separation features in modern Linux, the system design of void processes, and an evaluation on a series of example applications. 
 \end{abstract}
 
@@ -190,7 +190,66 @@ I present a summary of the privilege separation features in modern Linux, the sy
 
 Void processes take advantage of modern Linux namespaces to run applications with minimal exposure to the system itself. Void processes use a mixture of Linux namespaces and file descriptor based capabilities to allow running purpose-built applications without expecting the support of the standard Linux system. During the process of building such a system, gaps in the kernel were exposed. Namespaces were intended to emulate an ordinary Linux system, rather than creating something new. This work will go on to detail the mechanisms for creating void processes themselves, re-adding features that these processes need to do useful work, and the learnings of what features are missing in the user-space kernel APIs to succeed in creating processes this way.
 
-This work explores the question of what is an operating system by taking a novel approach to running applications with the system exposed in a very different way. Rather than limiting the access of a process or set of processes to the operating system, such as in containers, we instead limit the access to the operating system with more explicit methods per process. Interaction between processes is allowed by specifying such interaction statically at compile time, removing any separation between the application developer and the system controlling access to the application, unlike solutions such as SELinux [CN].
+This work explores the question of what is an operating system by taking a novel approach to running applications with the system exposed in a very different way. Rather than limiting the access of a process or set of processes to the operating system, such as in containers, we instead limit the access to the operating system with more explicit methods per process. Interaction between processes is allowed by specifying such interaction statically at compile time, removing any separation between the application developer and the system controlling access to the application, unlike solutions such as SELinux \citep{loscocco_security-enhanced_2000}.
+
+
+\begin{table*}
+    \caption{Table showing the date and kernel version each namespace was added. The date provides the first commit where they appeared date of creation, and the kernel version the kernel release they appear in the changelog of. Namespaces are ordered by kernel version then alphabetically. Some examples are provided of CVEs for each namespace.}
+
+    \begin{minipage}{\textwidth}
+    \begin{center}
+    \begin{tabular}{l|lr|lr|l}
+        Namespace & \multicolumn{2}{l}{Date} & \multicolumn{2}{|l|}{Kernel Version} & CVEs \\ \hline
+
+        \texttt{mount}
+            & 24th February 2001 & \citep{viro_patchcft_2001}
+            & 2.5.2 & \citep{torvalds_linux_2002}
+            & 2020-29373 \\
+
+        \texttt{ipc}
+            & 2nd October 2006 & \citep{korotaev_patch_2006}
+            & 2.6.19 & \citep{noauthor_linux_2006}
+            & \\
+
+        \texttt{uts}
+            & 2nd October 2006 & \citep{hallyn_patch_2006}
+            & 2.6.19 & \citep{noauthor_linux_2006}
+            & \\
+
+        \texttt{user}
+            & 15th July 2007 & \citep{le_goater_user_2007}
+            & 2.6.23 & \citep{noauthor_linux_2007}
+            & 2021-21284 \\
+
+        \texttt{network}
+            & 10th October 2007 & \citep{biederman_net_2007}
+            & 2.6.24 & \citep{noauthor_linux_2008}
+            & 2011-2189 \\
+
+        \texttt{pid}
+            & 2nd October 2006 & \citep{bhattiprolu_patch_2006}
+            & 2.6.24 & \citep{noauthor_linux_2008}
+            & 2019-20794 \\
+
+        \texttt{cgroup}
+            & 18th March 2016 & \citep{heo_git_2016}
+            & 4.6 & \citep{torvalds_linux_2016}
+            & 2022-0492 \\
+
+        \texttt{time}
+            & 12th November 2019 & \citep{vagin_ns_2020}
+            & 5.6 & \citep{noauthor_linux_2020}
+            &
+
+    \end{tabular}
+    \end{center}
+    \end{minipage}
+    
+    \label{tab:namespaces}
+\end{table*}
+
+
+\iffalse % disable \section{Motivation}
 
 \section{Motivation}
 \label{sec:motivation}
@@ -205,6 +264,9 @@ Void processes aim to serve a different purpose than containers. Rather than vir
 I present a threat model in which application binaries are trusted absolutely. That is, the software provider had no ill intent, and once the binary is on disk, it will not change without permission. This means that one can trust the binary to set up its own security, as it is protecting not against malice by its own developers, but instead bugs in the software.
 
 \todo{Expand and finalise threat model}
+
+\fi % end disable \section{Motivation}
+
 
 \section{Background}
 
@@ -332,64 +394,9 @@ doesn't exist).}
 
 This logic held even in the presence of namespaces, with the initial patchset in February 2001 \citep{viro_patch_2001}, as mounts were not initially shared but duplicated between namespaces. However, when shared subtrees were added in January 2005 \citep{viro_rfc_2005}, this logic stopped holding.
 
-When setting up a container environment, one calls \texttt{pivot\_root(2)} to replace the old root with a new root for the container. Then, the old root may be unmounted. Oftentimes the solution is to exec a binary in the new root first, meaning that the old root is no longer in use and may be unmounted. This works, as old root is only a reference in this namespace, and hence may be unmounted with children - the vfsmount in this namespace is not busy, in contradiction to the quotation.
+When setting up a container environment, one calls \texttt{pivot\_root(2)} to replace the old root with a new root for the container. Then, the old root may be unmounted. Oftentimes the solution is to exec a binary in the new root first, meaning that the old root is no longer in use and may be unmounted. This works, as old root is only a reference in this namespace, and hence may be unmounted with children - the \texttt{vfsmount} in this namespace is not busy, in contradiction to the quotation.
 
-If, instead, one wishes to continue running the existing binary, this is possible with lazy unmounting. However, the kernel only exposes a recursive lazy unmount. With shared subtrees, this results in destroying the parent tree. While this is avoidable by removing the shared propagation from the subtree before unmounting, the choice to have \texttt{MNT\_DETACH} aggressively cross shared subtrees can be highly confusing, and perhaps undersired behaviour in a world with shared subtrees by default.
-
-\begin{table*}
-    \caption{Table showing the date and kernel version each namespace was added. The date provides the first commit where they appeared date of creation, and the kernel version the kernel release they appear in the changelog of. Namespaces are ordered by kernel version then alphabetically. A checkbox is provided for whether the namespace displays copy-on-write behaviour, discussed in more detail in Section \ref{sec:building-the-void}.}
-
-    \begin{minipage}{\textwidth}
-    \begin{center}
-    \begin{tabular}{l|l|lc|lc}
-        Namespace & CoW & \multicolumn{2}{l}{Date} & \multicolumn{2}{l}{Kernel Version} \\ \hline
-
-        \texttt{mount}
-            & $\boxtimes$ \footnote{Shared namespaces make for unique behaviour, see §\ref{sec:shared-subtrees}.}
-            & 24th February 2001 & \citep{viro_patchcft_2001}
-            & 2.5.2 & \citep{torvalds_linux_2002} \\
-
-        \texttt{ipc}
-            & $\square$
-            & 2nd October 2006 & \citep{korotaev_patch_2006}
-            & 2.6.19 & \citep{noauthor_linux_2006} \\
-
-        \texttt{uts}
-            & $\boxtimes$
-            & 2nd October 2006 & \citep{hallyn_patch_2006}
-            & 2.6.19 & \citep{noauthor_linux_2006} \\
-
-        \texttt{user}
-            & $\square$
-            & 15th July 2007 & \citep{le_goater_user_2007}
-            & 2.6.23 & \citep{noauthor_linux_2007} \\
-
-        \texttt{network}
-            & $\square$
-            & 10th October 2007 & \citep{biederman_net_2007}
-            & 2.6.24 & \citep{noauthor_linux_2008} \\
-
-        \texttt{pid}
-            & $\square$
-            & 2nd October 2006 & \citep{bhattiprolu_patch_2006}
-            & 2.6.24 & \citep{noauthor_linux_2008} \\
-
-        \texttt{cgroup}
-            & $\square$ \footnote{cgroup namespaces provide a virtualised view of the unified cgroup namespace and do not allow private modification.}
-            & 18th March 2016 & \citep{heo_git_2016}
-            & 4.6 & \citep{torvalds_linux_2016} \\
-
-        \texttt{time}
-            & $\boxtimes$
-            & 12th November 2019 & \citep{vagin_ns_2020}
-            & 5.6 & \citep{noauthor_linux_2020}
-
-    \end{tabular}
-    \end{center}
-    \end{minipage}
-    
-    \label{tab:namespaces}
-\end{table*}
+If, instead, one wishes to continue running the existing binary, this is possible with lazy unmounting. However, the kernel only exposes a recursive lazy unmount. With shared subtrees, this results in destroying the parent tree. While this is avoidable by removing the shared propagation from the subtree before unmounting, the choice to have \texttt{MNT\_DETACH} aggressively cross shared subtrees can be highly confusing, and perhaps undesired behaviour in a world with shared subtrees by default.
 
 \section{System Design}
 
@@ -437,7 +444,7 @@ To create an effective void content must be written to the files \texttt{/proc/[
 
 \subsubsection{Network namespaces}
 
-Network namespaces were added in kernel version 2.6.24 \citep{noauthor_linux_2008}, some time after the initial namespace boom. They present the optimal namespace for creating a void. Creating a new network namespace immediately creates an entirely empty namespace. That is, the new network namespace has no link whatsoever to the creating network namespace. To add a link, one can create a virtual Ethernet pair, with one adapter in each namespace [CN]. Alternatively, one can create a Wireguard adapter with sending and receiving sockets in one namespace and the VPN adapter in another \citep[§7.3]{donenfeld_wireguard_2017}. This allows for very high levels of separation while still maintaining access to the primary resource - the Internet or wider network.
+Network namespaces were added in kernel version 2.6.24 \citep{noauthor_linux_2008}, some time after the initial namespace boom. They present the optimal namespace for creating a void. Creating a new network namespace immediately creates an entirely empty namespace. That is, the new network namespace has no link whatsoever to the creating network namespace. To add a link, one can create a virtual Ethernet pair, with one adapter in each namespace [RN]. Alternatively, one can create a Wireguard adapter with sending and receiving sockets in one namespace and the VPN adapter in another \citep[§7.3]{donenfeld_wireguard_2017}. This allows for very high levels of separation while still maintaining access to the primary resource - the Internet or wider network.
 
 \subsubsection{PID namespaces}
 
@@ -510,18 +517,18 @@ Alternatively, files and directories can be mounted in the void namespace. This 
 
 Reintroducing networking to a void follows a similar capability-based paradigm to reintroducing files. Rather than providing the full Linux networking view to a void process, it is instead handed a file descriptor that already has the requisite networking permissions. A capability for an inbound networking socket can be requested statically in the application's specification, which fits well with the earlier specified threat model. This socket remains open and allows the application to continuously accept requests, generating the appropriate socket for each request within the application itself, which can be dealt with through the mechanisms provided - specifically file descriptor based sockets.
 
-Outbound networking is more difficult to re-add to a void than inbound networking. The approach that containerisation solutions such as Docker take is using NAT with bridged adapters by default [CN]. That is, the container is provided an internal IP address that allows access to all networks via the host. Virtual machine solutions take a similar approach, creating bridged Ethernet adapters on the outside network or on a private NAT by default. Each of these approaches give the container/machine the appearance of unbounded outbound access, relying on firewalls to limit this afterwards. This does not fit well with the ethos of creating a void - minimum privilege by default. An ideal solution would provide add in precise network access to the void, rather than adding all access and restricting it in post. This is achieved with inbound sockets by providing the precise and already connected socket to an otherwise empty network namespace, which does not support creating inbound sockets of its own.
+Outbound networking is more difficult to re-add to a void than inbound networking. The approach that containerisation solutions such as Docker take is using NAT with bridged adapters by default [RN]. That is, the container is provided an internal IP address that allows access to all networks via the host. Virtual machine solutions take a similar approach, creating bridged Ethernet adapters on the outside network or on a private NAT by default. Each of these approaches give the container/machine the appearance of unbounded outbound access, relying on firewalls to limit this afterwards. This does not fit well with the ethos of creating a void - minimum privilege by default. An ideal solution would provide add in precise network access to the void, rather than adding all access and restricting it in post. This is achieved with inbound sockets by providing the precise and already connected socket to an otherwise empty network namespace, which does not support creating inbound sockets of its own.
 
 Consideration is given to providing outbound access in the same way as inbound - with statically created and passed sockets. For example, a socket to a database could be specified in the specification, or even one per worker process. The downside of this approach is that the socket lifecycle is still handled by the kernel. While this would work well with UDP sockets, TCP sockets can fail because the remote was closed or a break in the path caused a timeout to be hit.
 
-Given that statically giving sockets is infeasible and adding a firewall does not fit well with creating a void, I sought an alternative API. \texttt{pledge(2)} is a system call from OpenBSD which restricts future system calls to an approved set [CN]. This seems like a good fit, though operating outside of the operating system makes the implementation very different. Acceptable sockets can be specified in the application specification, then an interaction socket provided to request various pre-approved sockets from the shim layer. This allows limited access to the host network, approved or denied at request time instead of by a firewall. That is, access to a precisely configured socket can be injected to the void, with a capability to request such sockets and a capability given for the socket.
+Given that statically giving sockets is infeasible and adding a firewall does not fit well with creating a void, I sought an alternative API. \texttt{pledge(2)} is a system call from OpenBSD which restricts future system calls to an approved set \citep{the_openbsd_foundation_pledge2_2022}. This seems like a good fit, though operating outside of the operating system makes the implementation very different. Acceptable sockets can be specified in the application specification, then an interaction socket provided to request various pre-approved sockets from the shim layer. This allows limited access to the host network, approved or denied at request time instead of by a firewall. That is, access to a precisely configured socket can be injected to the void, with a capability to request such sockets and a capability given for the socket.
 
 
 \iffalse % disable \section{Language Frontends}
 
 \section{Language Frontends}
 
-The language frontends are an extremely important part of this project, closing the gap between a static privilege separation solution like SELinux [CN] and a dynamic one like Capsicum \citep{watson_capsicum_2010}. I have implemented a language frontend in Rust and will describe it in this section.
+The language frontends are an extremely important part of this project, closing the gap between a static privilege separation solution like SELinux \citep{loscocco_security-enhanced_2000} and a dynamic one like Capsicum \citep{watson_capsicum_2010}. I have implemented a language frontend in Rust and will describe it in this section.
 
 \subsection{Rust}
 
@@ -591,7 +598,7 @@ Finally, this pair of decrypted request reader and response writer are handed to
 
 \subsection{Virtual Machines and Containers}
 
-Virtual Machine solutions \citep{barham_xen_2003,vmware_inc_understanding_2008} provide the ability to split a single machine into multiple virtual machines. When placing a single application in each virtual machine, they are effectively isolated from one another. Full fat container solutions such as Docker [CN], containerd [CN], and systemd-nspawn [CN] provide mechanisms to isolate an application almost completely from other applications running on a single machine. Some have claimed that this provides isolation superior to virtual machines \citep{soltesz_container-based_2007}.
+Virtual Machine solutions \citep{barham_xen_2003,vmware_inc_understanding_2008} provide the ability to split a single machine into multiple virtual machines. When placing a single application in each virtual machine, they are effectively isolated from one another. Full fat container solutions such as Docker \citep{merkel_docker_2014}, containerd [CN], and systemd-nspawn [CN] provide mechanisms to isolate an application almost completely from other applications running on a single machine. Some have claimed that this provides isolation superior to virtual machines \citep{soltesz_container-based_2007}.
 
 Both of these solutions are less effective at isolating parts of an application from itself [CN with research]. Consider running only a TLS web server in a virtual machine. Although other applications will be unable to access the certificates, as they are in different virtual machines, methods within the application that should not be able to access the certificates still can.
 
