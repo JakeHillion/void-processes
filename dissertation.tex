@@ -353,7 +353,42 @@ Mount namespaces were by far the most challenging part of this project. When add
 
 Comparing to network namespaces, a slightly more modern namespace [Table \ref{tab:namespaces}], we see a huge difference in what occurs when a new namespace is created. When creating a new network namespace, the ideal conditions for a void process are created - a network namespace containing only a loopback adapter. That is, the process has no ability to interact with the outside network, and no immediate relation to the parent network namespace. To interact with alternate namespaces, one must explicitly create a connection between the two, or move a physical adapter into the new (empty) namespace. Mount namespaces, rather than creating a new and empty namespace, made the choice to create a copy of the parent namespace, in a copy-on-write fashion. That is, after creating a new mount namespace, the mount hierarchy appears much the same as before.
 
-\todo{Unmount shows all files demo (maybe open /etc/passwd).}
+\lstset{caption={Reading the same file before and after unsharing the mount namespace.}}
+\begin{lstlisting}[float,label={lst:unshare-cat-passwd}]
+int main() {
+        int fd;
+
+        if ((fd = open("/etc/passwd", O_RDONLY)) < 0)
+                perror("open");
+        print_file(fd);
+        if (close(fd))
+                perror("close");
+
+        if (unshare(CLONE_NEWNS))
+                perror("unshare");
+        printf("----- unshared -----\n");
+
+        if ((fd = open("/etc/passwd", O_RDONLY)) < 0)
+                perror("open");
+        print_file(fd);
+        if (close(fd))
+                perror("close");
+}
+--
+
+root:x:0:0:root:/root:/bin/bash
+daemon:x:1:1:daemon:/usr/sbin:/usr/sbin/nologin
+bin:x:2:2:bin:/bin:/usr/sbin/nologin
+sys:x:3:3:sys:/dev:/usr/sbin/nologin
+...
+----- unshared -----
+root:x:0:0:root:/root:/bin/bash
+daemon:x:1:1:daemon:/usr/sbin:/usr/sbin/nologin
+bin:x:2:2:bin:/bin:/usr/sbin/nologin
+sys:x:3:3:sys:/dev:/usr/sbin/nologin
+...
+umount: Device or resource busy
+\end{lstlisting}
 
 \subsubsection{Shared Subtrees}
 \label{sec:shared-subtrees}
