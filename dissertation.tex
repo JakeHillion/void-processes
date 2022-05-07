@@ -307,7 +307,46 @@ That is, time namespaces virtualise the appearance of system uptime to processes
 \subsection{network namespaces}
 \label{sec:voiding-net}
 
-Network namespaces were added in kernel version 2.6.24 \citep{noauthor_linux_2008}. Similarly to IPC, they present the optimal namespace for running a Void Process. Creating a new network namespace immediately creates a namespace containing only a loopback adapter. This means that the new network namespace has no link whatsoever to the creating network namespace, only supporting internal communication. To add a link, one can create a virtual Ethernet pair with one adapter in each namespace [RN]. Alternatively, one can create a Wireguard adapter with sending and receiving sockets in one namespace and the VPN adapter in another \citep[§7.3]{donenfeld_wireguard_2017}. These methods allow for very high levels of separation while still maintaining access to the primary resource - the Internet or wider network.
+Network namespaces were added in kernel version 2.6.24 \citep{noauthor_linux_2008}. Similarly to IPC, they present the optimal namespace for running a Void Process. Creating a new network namespace immediately creates a namespace containing only a loopback adapter. This means that the new network namespace has no link whatsoever to the creating network namespace, only supporting internal communication. To add a link, one can create a virtual Ethernet pair with one adapter in each namespace (see Figure \ref{fig:virtual-ethernet}). Alternatively, one can create a Wireguard adapter with sending and receiving sockets in one namespace and the VPN adapter in another \citep[§7.3]{donenfeld_wireguard_2017}. These methods allow for very high levels of separation while still maintaining access to the primary resource - the Internet or wider network.
+
+\begin{figure*}
+\begin{minipage}{.45\textwidth}
+
+\lstset{caption={}}
+\begin{lstlisting}[frame=tlrb,showlines=true]{Name}
+#
+#
+# ip link add veth0 type veth peer veth1
+# ip link set veth1 netns test
+# ip addr add 192.168.0.1/24 dev veth0
+# ip link set up dev veth0
+# ping -c 1 192.168.0.2
+PING 192.168.0.2 (192.168.0.2) 56(84) bytes of data.
+64 bytes from 192.168.0.2: icmp_seq=1 ttl=64 time=0.317 ms
+\end{lstlisting}
+
+\end{minipage}\hfill
+\begin{minipage}{.45\textwidth}
+
+\lstset{caption={}}
+\begin{lstlisting}[frame=tlrb]{Name}
+# unshare -n
+# ip netns attach test $$
+#
+#
+# ip addr add 192.168.0.2/24 dev veth1
+# ip link set up dev veth1
+# ping -c 1 192.168.0.1
+PING 192.168.0.1 (192.168.0.1) 56(84) bytes of data.
+64 bytes from 192.168.0.1: icmp_seq=1 ttl=64 time=0.107 ms
+\end{lstlisting}
+
+\end{minipage}
+
+\caption{Creating a virtual Ethernet pair between the root network namespace and a newly created network namespace.}
+\label{fig:virtual-ethernet}
+\end{figure*}
+
 
 \subsection{pid namespaces}
 \label{sec:voiding-pid}
@@ -542,14 +581,14 @@ An alternative implementation that would make implementing with the cgroups name
 
 Once a set of namespaces to contain the Void Process have been created the goal is to reinsert enough to run the application, and nothing more. To allow for running applications as Void Processes with minimal kernel changes, this is done using a mixture of file-descriptor capabilities and adding elements to the namespaces. Capabilities allow for a clean experience where suitable, while adding elements to namespaces creates a more Linux-like experience for the application.
 
-\subsection{Files and directories}
+\subsection{mount namespace}
 \label{sec:filling-mount}
 
 There are two options to provide access to files and directories in the void. Firstly, for a single file, an already open file descriptor can be offered. Consider the TLS broker of a TLS server with a persistent certificate and keyfile. Only these files are required to correctly run the application - no view of a filesystem is necessary. Providing an already opened file descriptor gives the process a capability to those files while requiring no concept of a filesystem, allowing that to remain a complete void. This is possible because of the semantics of file descriptor passing across namespaces - the file descriptor remains a capability, regardless of moving into a namespace without access to the file in question.
 
 Alternatively, files and directories can be mounted in the Void Process's namespace. This supports three things which the capabilities do not: directories, dynamic linking, and applications which have not been adapted to use file descriptors. Firstly, the existing \texttt{openat(2)} calls are not suitable by default to treat directory file descriptors as capabilities, as they allow the search path to be absolute. This means that a process with a directory file descriptor in another namespace can access any files in that namespace [RN] by supplying an absolute path. Secondly, dynamic linking is best served by binding files, as these read only copies and the trusted binaries ensure that only the required libraries can be linked against. Finally, support for individual required files can be added by using file descriptors, but many applications will not trivially support it. Binding files allows for a form of backwards compatibility.
 
-\subsection{Networking}
+\subsection{network namespace}
 \label{sec:filling-net}
 
 Reintroducing networking to a Void Process follows a similar capability-based paradigm to reintroducing files. Rather than providing the full Linux networking view to a Void Process, it is instead handed a file descriptor that already has the requisite networking permissions. A capability for an inbound networking socket can be requested statically in the application's specification, which fits well with the earlier specified threat model. This socket remains open and allows the application to continuously accept requests, generating the appropriate socket for each request within the application itself, which can be dealt with through the mechanisms provided - specifically file descriptor based sockets.
@@ -560,32 +599,49 @@ Consideration is given to providing outbound access in the same way as inbound -
 
 Given that statically giving sockets is infeasible and adding a firewall does not fit well with creating a void, I sought an alternative API. \texttt{pledge(2)} is a system call from OpenBSD which restricts future system calls to an approved set \citep{the_openbsd_foundation_pledge2_2022}. This seems like a good fit, though operating outside of the operating system makes the implementation very different. Acceptable sockets can be specified in the application specification, then an interaction socket provided to request various pre-approved sockets from the shim layer. This allows limited access to the host network, approved or denied at request time instead of by a firewall. That is, access to a precisely configured socket can be injected to the void, with a capability to request such sockets and a capability given for the socket.
 
-\subsection{User capabilities}
+\subsection{user namespace}
 \label{sec:filling-user}
 
-\todo{Write section on filling user namespaces.}
+Filling a user namespace is a slightly odd concept compared to the namespaces already discussed in this section. As stated in Section \ref{sec:voiding-user}, a user namespace comes with no implicit mapping of users whatsoever. To enable applications to be run with constrained authority, a single mapping is added by the Void Orchestrator of \texttt{root} in the child user namespace to the launching UID in the parent namespace. This means that the user with highest privilege in the container, \texttt{root}, will be limited to the access of the launching user. The behaviour of mapping \texttt{root} to the calling user is shown with the \texttt{unshare(1)} command in Listing \ref{lst:mapped-root-directory}, where a directory owned by the calling user, \texttt{jsh77}, appears to be owned by \texttt{root} in the new namespace. A file owned by \texttt{root} in the parent namespace appears to be owned by \texttt{nobody} in the child namespace, as no mapping exists for that file's user.
+
+\lstset{language=C,caption={A directory listing before and after entering a user namespace with mapped root.}}
+\begin{lstlisting}[float,label={lst:mapped-root-directory}]
+$ ls -ld repos owned_by_root
+-rw-r--r-- 1 root  root     0 May  7 22:13 owned_by_root
+drwxrwxr-x 7 jsh77 jsh77 4096 Feb 27 17:52 repos
+
+$ unshare -U --map-root
+
+# ls -ld repos owned_by_root
+-rw-r--r-- 1 nobody nogroup    0 May  7 22:13 owned_by_root
+drwxrwxr-x 7 root root 4096 Feb 27 17:52 repos
+\end{lstlisting}
+
+We can see then that the way user namespaces are currently used creates a binary system: either a file appears as owned by \texttt{root} if owned by the calling user, or appears as owned by \texttt{nobody} if not (ignoring groups for clarity, though their behaviour is similar). One questions whether more users could be mapped in, but this presents additional difficulties. Firstly, \texttt{setgroups(2)} system call must be denied to achieve correct behaviour in the child namespace. This is because the \texttt{root} user in the child namespace has full capabilities, which include \texttt{CAP\_SETGID}. This means that the user in the namespace can drop their groups, potentially allowing access to materials which the creating user did not (consider a file with permissions 707). This limits the utility of switching user in the child namespace, as the groups must remain the same. Secondly, mapping to users and groups other than oneself requires \texttt{CAP\_SETUID} or \texttt{CAP\_SETGID} in the parent namespace. Avoiding this seems a good idea to reduce the ambient authority of the shim.
+
+Voiding the user namespace initially provides the ability to create other namespaces with ambient authority, and hides the details of the Void Process's ambient permissions from inside. Although this creates a binary system of users which may at first seem limiting, applying the context of Void Processes helps realise that it is not. Linux itself may utility users, groups and capabilities for process limits, but Void Processes only provide what is absolutely necessary. That is, if a process should not have access to a file owned by the same user, it is simply not made available. Running only as \texttt{root} within the Void Process is therefore not a problem - multiple users is a feature of Linux which doesn't well serve the cause.
 
 \subsection{Remaining namespaces}
 
-\subsubsection{uts namespaces}
+\subsubsection{uts namespace}
 \label{sec:filling-uts}
 
-\todo{Write about filling uts namespaces.}
+uts namespaces are easily voided by setting the two controlled strings to a static string. However, if one wishes for them to hold specific values, they can be set in one of two ways: either calling \texttt{sethostname(2)} or \texttt{setdomainname(2)} from within the Void Process, or by providing static values within the Void Process's specification.
 
-\subsubsection{ipc namespaces}
+\subsubsection{ipc namespace}
 \label{sec:filling-ipc}
 
-\todo{Write about (lack of) filling ipc namespaces.}
+Filling ipc namespaces is also not possible in this context. An ipc namespace is created empty, as stated in Section \ref{sec:voiding-ipc}. IPC objects exist in one and only one ipc namespace, due to sharing what they expect to be a global namespace of keys. This means that existing IPC objects cannot be mapped into the Void Process's namespace. However, the process within the ipc namespace can use IPC objects, for example between threads. This is potentially inadvisable, because different Void Processes would provide stronger isolation than IPC within a single Void Process. Alternative IPC methods are available which use the filesystem namespace and are better shared in a controlled fashion between Void Processes.
 
-\subsubsection{pid namespaces}
+\subsubsection{pid namespace}
 \label{sec:filling-pid}
 
-\todo{Write about there being no need to fill pid namespaces.}
+A created pid namespace exists by itself, with no concept of mapping in PIDs from the parent namespace. The first process created in the namespace becomes PID 1, and after that other processes can be spawned from within. As such there is no need to fill pid namespaces, instead applications can be restructured to not expect seeing other process's IDs.
 
-\subsubsection{cgroup namespaces}
+\subsubsection{cgroup namespace}
 \label{sec:filling-cgroup}
 
-\todo{Write about how cgroup namespaces are filled by default, as it is a subtree.}
+cgroup namespaces present some very interesting behaviour in this regard. What appears to be the root in the new cgroup namespace is in fact a subtree of the hierarchy in the parent. This again provides a quite strange concept of filling - elements of the tree cannot be cloned to appear in two places, by design. To provide fuller interaction with the cgroups system, one can instead bind whichever subtree they wish to act on from the parent mount namespace to the child mount namespace. This provides the control of any section of the cgroups subtree seen fit, and is unaffected by the cgroups namespace of the child. That is, the cgroups namespace is used only to provide a void, and the mount namespace can be used to operate on cgroups.
 
 
 \section{System Design}
