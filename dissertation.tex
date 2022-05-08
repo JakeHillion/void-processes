@@ -269,7 +269,27 @@ The question of what makes an operating system has been asked many times. This w
 
 \section{Privilege Separation}
 
-\todo{Privilege separation.}
+Privilege separation became a necessity on systems as they became more complex. It was realised that many attack factors existed on software, notably in argument processing and deserialisation. What became clear was the large applications didn't exhibit enough decomposition when it came to their privileges. This meant the security conscious applications had to take a stance.
+
+The basic unit of privilege separation on Unix is a process. If it's possible for an attacker to gain remote code execution on an entire process at the time, then we can limit the attack factor by limiting what that process has access to. The first solution to privilege separating an application on UNIX is therefore to place elements into different processes. One can separate, for example, the process of a TLS server which has access to the private keys for the certificate from the part of the server which processes user input. What becomes obvious in this technique is the programmer overhead of handling the newly found interprocess communication in the system. This is often likened to building a distributed system [CN].
+
+\todo{Write about OpenBSD's syslogd.}
+
+\subsection{Dropping Privileges}
+
+Annotated to multiple processes that later appeared is dropping privileges. One of the easiest way to do this is to change user using a set UI D command after the privileged requirements are complete. Another alternative is to use an API such as OpenBSD's \texttt{pledge(2)}, which allows only a pre-specified set of system calls after the call to \texttt{pledge(2)}. Each of these solutions irreversibly reduce the privilege of the application. This is known as dropping privilege. There are many good examples of where this is useful however it creates additional complexity. It becomes difficult to do things such as reloading the configuration, as you no longer have the required privilege to restart the application, and if you could gain it back then dropping it would have had no effect. Further, if deserialisation is such a common source of bugs in applications, there must be significantly more if the application itself is akin to a networked system.
+
+\subsection{Object Capabilities}
+
+Capsicum \citep{watson_capsicum_2010} extends UNIX file descriptors in FreeBSD to reflect the rights on the object they hold. These capabilities may be shared between processes as other file descriptors. The goals of both software are the same: make privilege separated software better. However, we take quite different approaches. Multi-entrypoint applications focus on building a static definition really close to the code, while Capsicum allows processes to dynamically privilege separate. This allows applying static analysis to the policies, while also keeping the definition close to the code.
+
+\todo{Refactor this to fit here.}
+
+\subsection{Namespaces}
+
+The lyrics approach to increase public separate at separation is main spaces. No spaces alter the view of the world that are process seas. This continues using processes as the primary method of separation, but can increase how separated the processes are. The most common use case, and indeed the intended use case, of nine spaces is providing containers. Containers are akin to virtual machines, in that they provide the view of running on an isolated system, while sharing the same host. Containers, however, have to implement privilege separation in a very different way to the privilege of separation we've seen previously. Rather than spawning multiple processes and employing privilege separation techniques to limit the attack vector in each, one spawns multiple containers to form a more literal distributed system instead. It is common to see, for example, a web server and the database that backs it deployed as two separate containers. These separate containers interact entirely over the network. This means that if a user achieves remote code execution of the database, it does not extend to the web server. The design pattern of building multiple processes which exist independently and communicate externally is called microservices. This presents an interesting paradigm of small applications which can and often do run on separate physical hosts combining to provide a unified application experience.
+
+This work focuses on the application of namespaces to more conventional privilege separation. Working with a shim which orchestrates the process and namespace layout, Void Applications seek to provide a pruned Linux experience to each Void Process within the application: the absolute minimum that must be provided. Much of the work in privilege separation, object capabilities and namespaces are used to provide this experience to the application. There is never a need to drop privileges as applications are created with the absolute minimum necessary to perform correctly. In Section \ref{sec:voiding} we discuss each namespace's role in Linux and how to create one which is empty, before explaining in Section \ref{sec:filling} how to reinsert just enough Linux for each process in an application to work correctly.
 
 
 \section{Namespaces}
@@ -710,10 +730,6 @@ While virtual machines and containers provide a strong isolation at the applicat
 \subsection{systemd}
 
 \texttt{systemd} [CN] provides a declarative interface to all of the process separation techniques used in this work. Rather than the responsibility of the programmer, creating these declarative descriptions is most commonly left to the package maintainers. This work seeks to provide similar capabilities to the people best suited to privilege separating an application: the developers.
-
-\subsection{Capsicum}
-
-Capsicum \citep{watson_capsicum_2010} extends UNIX file descriptors in FreeBSD to reflect the rights on the object they hold. These capabilities may be shared between processes as other file descriptors. The goals of both software are the same: make privilege separated software better. However, we take quite different approaches. Multi-entrypoint applications focus on building a static definition really close to the code, while Capsicum allows processes to dynamically privilege separate. This allows applying static analysis to the policies, while also keeping the definition close to the code.
 
 
 \section{Future Work}
