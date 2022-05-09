@@ -273,7 +273,7 @@ Privilege separation became a necessity on systems as they became more complex. 
 
 The basic unit of privilege separation on Unix is a process. If it's possible for an attacker to gain remote code execution on an entire process at the time, then we can limit the attack factor by limiting what that process has access to. The first solution to privilege separating an application on UNIX is therefore to place elements into different processes. One can separate, for example, the process of a TLS server which has access to the private keys for the certificate from the part of the server which processes user input. What becomes obvious in this technique is the programmer overhead of handling the newly found interprocess communication in the system. This is often likened to building a distributed system [CN].
 
-\todo{Write about OpenBSD's syslogd.}
+OpenBSD is a UNIX operating system with an emphasis on security. In 2003, privilege separation was added to the \texttt{syslogd} daemon of OpenBSD \citep{madhavapeddy_privsepc_2003}. The system is designed with a manager parent process that retains privilege and a network accepting child process that goes through a series of states, dropping privilege through each one.
 
 \subsection{Dropping Privileges}
 
