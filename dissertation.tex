@@ -58,8 +58,9 @@
 \setcounter{page}{0}
 \pagestyle{plain}
 \tableofcontents
-\listoffigures
-\listoftables
+
+%\listoffigures
+%\listoftables
 
 \onehalfspacing
 
@@ -75,7 +76,7 @@ The question of what makes an operating system has been asked many times. There 
 
 \begin{figure}[h]
     \centering
-    \includegraphics[width=\columnwidth]{figures/least-most-linux.png}
+    \includegraphics[width=0.6\textwidth]{figures/least-most-linux.png}
     \caption{Privilege separated environments plotted from least to most like bare metal Linux.}
     \label{fig:least-to-most-linux}
 \end{figure}
@@ -84,7 +85,6 @@ The question of what makes an operating system has been asked many times. There 
 \begin{table}
     \caption{Table showing the date and kernel version each namespace was added. The date provides the date of the first commit where they appeared, and the kernel version the kernel release they appear in the changelog of. Namespaces are ordered by kernel version then alphabetically. Some examples are provided of CVEs for each namespace.}
 
-    \begin{minipage}{\textwidth}
     \begin{center}
     \begin{tabular}{l|lr|lr|l}
         Namespace & \multicolumn{2}{l}{Date} & \multicolumn{2}{|l|}{Kernel Ver.} & CVEs \\ \hline
@@ -131,8 +131,7 @@ The question of what makes an operating system has been asked many times. There 
 
     \end{tabular}
     \end{center}
-    \end{minipage}
-    
+
     \label{tab:namespaces}
 \end{table}
 
@@ -147,7 +146,7 @@ OpenBSD is a UNIX operating system with an emphasis on security. In 2003, privil
 
 \begin{figure}
     \centering
-    \includegraphics[width=\columnwidth]{figures/openbsd-syslogd-privsep.png}
+    \includegraphics[width=0.4\textwidth]{figures/openbsd-syslogd-privsep.png}
     \caption{Data flow with the two processes in OpenBSD's privilege separated syslogd design.}
     \label{fig:openbsd-syslogd-privsep}
 \end{figure}
@@ -466,7 +465,7 @@ cgroup namespaces provide limited isolation of the cgroup hierarchy between proc
     \item Unshare the cgroup namespace.
 \end{enumerate}
 
-This process excludes the cgroup namespace from the initial \texttt{clone(3)} call, as the cloned process must be moved before creating the new namespace. By following this sequence of calls, the process in the void can only see the leaf which contains itself and nothing else, limiting access to the host system.  This is the approach taken in this piece of work. This presents the one point where running the shim with ambient authority rather than high capabilities is potentially limiting. In order to move the process into a leaf the shim must have sufficient authority to modify the cgroup hierarchy. On systemd these processes will be launched underneath a user slice and will have sufficient permissions, but this may vary between systems. This leaves cgroups the most weakly implemented namespace at the moment.
+This process excludes the cgroup namespace from the initial \texttt{clone(3)} call, as the cloned process must be moved before creating the new namespace. By following this sequence of calls, the process in the void can only see the leaf which contains itself and nothing else, limiting access to the host system.  This is the approach taken in this piece of work. This presents the one point where running the shim with ambient authority rather than high capabilities is potentially limiting. In order to move the process into a leaf the shim must have sufficient authority to modify the cgroup hierarchy. On systemd these processes will be launched underneath a user slice and will have sufficient permissions, but this may vary between systems. This leaves cgroups the most weakly implemented namespace at present.
 
 Although good isolation of the host system from the Void Process is provided, the Void Process is in no way hidden from the host. There exists only one cgroups v2 hierarchy on a system (cgroups v1 are ignored for clarity), where resources are delegated through each. This means that all processes contained within the hierarchy must appear in the primary hierarchy, such that the distribution of the single set of system resources can be centrally controlled. This behaviour is similar to the aforementioned pid namespaces, where each process has a distinct PID in each of its parents, but does show up in each. Hiding from the host has little value as a root user there can inspect each namespace manually.
 
@@ -539,18 +538,6 @@ A created pid namespace exists by itself, with no concept of mapping in PIDs fro
 
 cgroup namespaces present some very interesting behaviour in this regard. What appears to be the root in the new cgroup namespace is in fact a subtree of the hierarchy in the parent. This again provides a quite strange concept of filling - elements of the tree cannot be cloned to appear in two places, by design. To provide fuller interaction with the cgroups system, one can instead bind whichever subtree they wish to act on from the parent mount namespace to the child mount namespace. This provides the control of any section of the cgroups subtree seen fit, and is unaffected by the cgroups namespace of the child. That is, the cgroups namespace is used only to provide a void, and the mount namespace can be used to operate on cgroups.
 
-\chapter{System Design}
-
-\begin{figure}
-    \centering
-    \includegraphics[width=\columnwidth]{figures/self-compartmentalisation-interactions.png}
-    \caption{Interaction between the application and the environment.}
-    \label{fig:self-compartmentalisation-interactions}
-\end{figure}
-
-An example of running a Void Process application is given in Figure \ref{fig:self-compartmentalisation-interactions}. What was originally a monolithic application becomes a set of applications that communicate with a new shim. The shim does not replace the kernel, and instead supplements it with new higher-level abilities. Each entrypoint receives input from the shim, and can return data to the shim where appropriate. Most of this data is in the form of file descriptors, which are treated as capabilities in this system.
-
-A Void Process application stores the requirements for running it as static data in the ELF of the binary. When launched, \texttt{binfmt\_misc} is used to launch the application with the multi-entrypoint shim. The shim decodes this data and sets up processes and inter-process communication (IPC) accordingly.
 
 \chapter{Building Applications}
 
@@ -591,9 +578,11 @@ Finally, this pair of decrypted request reader and response writer are handed to
 \todo{Write evaluation}
 
 
-\chapter{Related Work}
+\chapter{Conclusions}
 
-\section{Virtual Machines and Containers}
+\section{Related Work}
+
+\subsection{Virtual Machines and Containers}
 
 Virtual Machine solutions \citep{barham_xen_2003,vmware_inc_understanding_2008} provide the ability to split a single machine into multiple virtual machines. When placing a single application in each virtual machine, they are effectively isolated from one another. Full fat container solutions such as Docker \citep{merkel_docker_2014}, containerd [CN], and systemd-nspawn [CN] provide mechanisms to isolate an application almost completely from other applications running on a single machine. Some have claimed that this provides isolation superior to virtual machines \citep{soltesz_container-based_2007}.
 
@@ -601,19 +590,17 @@ Both of these solutions are less effective at isolating parts of an application 
 
 While virtual machines and containers provide a strong isolation at the application level, they are not a compelling solution to intra-application privilege separation.
 
-\section{systemd}
+\subsection{systemd}
 
 \texttt{systemd} [CN] provides a declarative interface to all of the process separation techniques used in this work. Rather than the responsibility of the programmer, creating these declarative descriptions is most commonly left to the package maintainers. This work seeks to provide similar capabilities to the people best suited to privilege separating an application: the developers.
 
+\section{Future Work}
 
-\chapter{Future Work}
-
-\section{Dynamic Linking}
+\subsection{Dynamic Linking}
 
 Dynamic linking works correctly under the shim, however, it currently requires a high level of manual input. Given that the threat model in Section \ref{section:threat-model} specifies trusted binaries, it is feasible to add a pre-spawning phase which appends read-only libraries to the specification for each spawned process automatically before creating appropriate voids. This would allow anything which can link correctly on the host system to link correctly in Void Processes.
 
-
-\chapter{Conclusion}
+\section{Conclusion}
 
 \todo{Write conclusion}
 
