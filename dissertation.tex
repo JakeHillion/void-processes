@@ -63,6 +63,7 @@
 %\listoftables
 
 \onehalfspacing
+\setstretch{1.2}
 
 %% START OF MAIN TEXT
 
@@ -83,50 +84,58 @@ The question of what makes an operating system has been asked many times. There 
 
 
 \begin{table}
-    \caption{Table showing the date and kernel version each namespace was added. The date provides the date of the first commit where they appeared, and the kernel version the kernel release they appear in the changelog of. Namespaces are ordered by kernel version then alphabetically. Some examples are provided of CVEs for each namespace.}
+    \caption{Table showing the date and kernel version each namespace was added. The date provides the date of the first commit where they appeared, and the kernel version the kernel release they appear in the changelog of. Namespaces are ordered by kernel version then alphabetically. Some examples are provided of CVEs of each namespace, and CVEs that each namespace protects against.}
 
     \begin{center}
-    \begin{tabular}{l|lr|lr|l}
-        Namespace & \multicolumn{2}{l}{Date} & \multicolumn{2}{|l|}{Kernel Ver.} & CVEs \\ \hline
+    \begin{tabular}{l|lr|lr|l|l}
+        Namespace & \multicolumn{2}{l}{Date} & \multicolumn{2}{|l|}{Kernel Ver.} & Namespace CVEs & Object CVEs \\ \hline
 
         \texttt{mount}
             & Feb 2001 & \citep{viro_patchcft_2001}
             & 2.5.2 & \citep{torvalds_linux_2002}
-            & 2020-29373 \\
+            & 2020-29373
+            & \\
 
         \texttt{ipc}
             & Oct 2006 & \citep{korotaev_patch_2006}
             & 2.6.19 & \citep{noauthor_linux_2006}
+            &
             & \\
 
         \texttt{uts}
             & Oct 2006 & \citep{hallyn_patch_2006}
             & 2.6.19 & \citep{noauthor_linux_2006}
+            &
             & \\
 
         \texttt{user}
             & Jul 2007 & \citep{le_goater_user_2007}
             & 2.6.23 & \citep{noauthor_linux_2007}
-            & 2021-21284 \\
+            & 2021-21284
+            & \\
 
         \texttt{network}
             & Oct 2007 & \citep{biederman_net_2007}
             & 2.6.24 & \citep{noauthor_linux_2008}
-            & 2011-2189 \\
+            & 2011-2189
+            & \\
 
         \texttt{pid}
             & Oct 2006 & \citep{bhattiprolu_patch_2006}
             & 2.6.24 & \citep{noauthor_linux_2008}
-            & 2019-20794 \\
+            & 2019-20794
+            & \\
 
         \texttt{cgroup}
             & Mar 2016 & \citep{heo_git_2016}
             & 4.6 & \citep{torvalds_linux_2016}
-            & 2022-0492 \\
+            & 2022-0492
+            & \\
 
         \texttt{time}
             & Nov 2019 & \citep{vagin_ns_2020}
             & 5.6 & \citep{noauthor_linux_2020}
+            &
             &
 
     \end{tabular}
