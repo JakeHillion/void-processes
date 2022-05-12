@@ -68,6 +68,8 @@
 %% START OF MAIN TEXT
 
 \chapter{Introduction}
+\label{chap:introduction}
+
 \pagenumbering{arabic} 
 \setcounter{page}{1}
 
@@ -88,13 +90,13 @@ The question of what makes an operating system has been asked many times. There 
 
     \begin{center}
     \begin{tabular}{l|lr|lr|l|l}
-        Namespace & \multicolumn{2}{l}{Date} & \multicolumn{2}{|l|}{Kernel Ver.} & Namespace CVEs & Object CVEs \\ \hline
+        ns & \multicolumn{2}{l}{date} & \multicolumn{2}{|l|}{kernel ver.} & ns CVEs & prot. CVEs \\ \hline
 
         \texttt{mount}
             & Feb 2001 & \citep{viro_patchcft_2001}
             & 2.5.2 & \citep{torvalds_linux_2002}
             & 2020-29373
-            & \\
+            & test \newline test2 \\
 
         \texttt{ipc}
             & Oct 2006 & \citep{korotaev_patch_2006}
@@ -146,12 +148,23 @@ The question of what makes an operating system has been asked many times. There 
 
 
 \chapter{Privilege Separation}
+\label{chap:priv-sep}
 
-Privilege separation became a necessity as systems became more complex. Many attack vectors existed in software, notably in argument processing and deserialisation \citep{the_mitre_corporation_improper_2006,the_mitre_corporation_deserialization_2006}. This made it clear that large applications didn't exhibit enough decomposition when it came to their privileges. Creating security conscious applications would require one of two things: creating applications without security bugs, or separating the parts of the application with the potential to cause damage from the parts most likely to contain bugs. Though many efforts have been made to create correct applications [CN], the use of such technology is far from widespread and security related bugs in applications are still frequent [CN]. Rather than attempting to avoid bugs, the commonly employed solution is privilege separation: ensuring that the privileged portion of the application is correct and separated from the portion which is likely to be attacked.
+Many attack vectors exist in software, notably in argument processing and deserialisation \citep{the_mitre_corporation_improper_2006,the_mitre_corporation_deserialization_2006}. Creating security conscious applications requires one of two things: creating applications without security bugs, or separating the parts of the application with the potential to cause damage from the parts most likely to contain bugs. Though many efforts have been made to create correct applications [CN], the use of such technology is far from widespread and security related bugs in applications are still frequent [CN]. Rather than attempting to avoid bugs, the commonly employed solution is privilege separation: ensuring that the privileged portion of the application is separated from the portion which is likely to be attacked, and that the interface between them is correct. This chapter details what privilege separation is, why it is useful, and a summary of some of the privilege separation techniques available in modern Unices. Many of these techniques are included in some form in the final design for Void Processes.
 
-The basic unit of privilege separation on Unix is a process. If it's possible for an attacker to gain remote code execution in a process, the attacker gains access to all of the process's privilege. Reducing the privilege of a process therefore reduces the attack surface available. The first solution to privilege separating an application on UNIX is to place elements into different processes. One can separate, for example, the process of a TLS server which has access to the private keys from the part of the server which processes user input. What becomes obvious in this technique is the programmer overhead of handling the newly found inter-process communication in the system. Application design in this paradigm is similar to that of a distributed system, where many asynchronous systems must interact.
+The basic unit of privilege separation on Unix is a process. If it's possible for an attacker to gain remote code execution in a process, the attacker gains access to all of the process's privilege. Reducing the privilege of a process therefore reduces the attack surface available. The first solution to privilege separating an application on UNIX is to place elements into different processes. One can separate, for example, the process of a TLS server which has access to the private keys from the part of the server which processes user input. This means that if the deserialisation in the user data processing process is compromised it cannot access the contents of the private keys. What becomes obvious in this technique is the programmer overhead of handling the newly found inter-process communication in the system. Application design in this paradigm is similar to that of a distributed system, where multiple asynchronous systems must interact.
 
-OpenBSD is a UNIX operating system with an emphasis on security. In 2003, privilege separation was added to the \texttt{syslogd} daemon of OpenBSD \citep{madhavapeddy_privsepc_2003}. The system is designed with a parent process that retains privilege and a network accepting child process that goes through a series of states, dropping privilege with each state change. This pattern allowed for restarting of the service while keeping the section which processed user data strongly separated from the process which remains privileged, by enabling the child process to cause its own restart while not holding enough privilege to execute that restart itself. An overview of the data flow is provided in Figure \ref{fig:openbsd-syslogd-privsep}. This section goes on to provide an overview of privilege separation techniques in modern Unices, many of which are included in some form in the final design for Void Processes.
+OpenBSD is a UNIX operating system with an emphasis on security. A recent bug in OpenBSD's \texttt{sshd} highlights the importance of privilege separation \citep{the_openbsd_foundation_openssh_2022}. An integer overflow in the pre-authentication logic of the SSH daemon allowed a motivated attacker to exploit incorrect logic paths and gain access without authentication. Privilege separation ensures that the process with this bug is separated from the process which is able to be exploited. Moreover, privilege separation being mandatory in the software ensures that bugs which are not exploitable due to the privilege separation monitor's checks are not exploitable on any deployed system.
+
+\section{Privilege separation over time}
+
+Many applications can privilege separate by using a single process which reduces its level of privilege as the application makes progress. This is effectively privilege separation over time. The approach is commonly to begin with high privilege for opening, for example, a listening socket below port 1000. After this has been completed, the ability to do so is dropped. One of the earliest ways to do this is to change user using \texttt{setuid(2)} after the privileged requirements are complete. An API such as OpenBSD's \texttt{pledge(2)} allows only a pre-specified set of system calls after the call to \texttt{pledge(2)}. A final alternative is to drop explicit capabilities on Linux. Each of these solutions irreversibly reduce the privilege of the application. This is known as dropping privilege.
+
+After dropping privilege, it becomes difficult to do things such as reloading the configuration. The application process no longer have the required privilege to restart the application, and if you could gain it back then dropping it would have had no effect. Further, as an application becomes more like a networked system, serialisation and deserialisation becomes a common occurrence. As deserialisation is a very common source of exploits \citep{the_mitre_corporation_deserialization_2006}, this adds the potential for new flaws in the application.
+
+\section{Privilege separation by process}
+
+In 2003, privilege separation was added to the \texttt{syslogd} daemon of OpenBSD \citep{madhavapeddy_privsepc_2003}. The system is designed with a parent process that retains privilege and a network accepting child process that goes through a series of states, dropping privilege with each state change. This pattern allowed for restarting of the service while keeping the section which processed user data strongly separated from the process which remains privileged, by enabling the child process to cause its own restart while not holding enough privilege to execute that restart itself. An overview of the data flow is provided in Figure \ref{fig:openbsd-syslogd-privsep}.
 
 \begin{figure}
     \centering
@@ -160,13 +173,7 @@ OpenBSD is a UNIX operating system with an emphasis on security. In 2003, privil
     \label{fig:openbsd-syslogd-privsep}
 \end{figure}
 
-\section{Dropping Privileges}
-
-It is possible for many applications to utilise a single process which reduces its level of privilege as the application makes progress. The approach is commonly to begin with high privilege for opening, for example, a listening socket below port 1000. After this has been completed, the ability to do so is dropped. One of the earliest ways to do this is to change user using \texttt{setuid(2)} after the privileged requirements are complete. An API such as OpenBSD's \texttt{pledge(2)} allows only a pre-specified set of system calls after the call to \texttt{pledge(2)}. A final alternative is to drop explicit capabilities on Linux. Each of these solutions irreversibly reduce the privilege of the application. This is known as dropping privilege.
-
-After dropping privilege, it becomes difficult to do things such as reloading the configuration. The application process no longer have the required privilege to restart the application, and if you could gain it back then dropping it would have had no effect. Further, as an application becomes more like a networked system, serialisation and deserialisation becomes a common occurrence. As deserialisation is a very common source of exploits \citep{the_mitre_corporation_deserialization_2006}, this adds the potential for new flaws in the application.
-
-\section{Object Capabilities}
+\section{Object capabilities}
 
 Object capabilities attempt to enable least privilege operation by providing more tangible tokens of authority to applications. Capabilities are described as unforgeable tokens of authority, providing an application with an object and a set of rights on it. For example, a file descriptor and the right to read from it. Capsicum \citep{watson_capsicum_2010} adds object capabilities to FreeBSD. These capabilities may be shared between processes as with file descriptors. Capability mode reduces a process's privilege to operating only on capabilities, and not creating new ones.
 
@@ -174,13 +181,16 @@ Object capabilities attempt to enable least privilege operation by providing mor
 
 The Linux approach to increased process separation is namespaces. Namespaces alter the view of the world that a process sees. Processes remain the primary method of separation, but can increase how separated the processes are from both each other and the underlying host system. The intended and most common use case of namespaces is providing containers. Containers approximate virtual machines, providing the appearance of running on an isolated system while sharing the same host. Containers, however, have to implement privilege separation in a very different way to the privilege of separation we've seen previously. Rather than spawning multiple processes and employing privilege separation techniques to limit the attack vector in each, one spawns multiple containers to form a more literal distributed system instead. It is common to see, for example, a web server and the database that backs it deployed as two separate containers. These separate containers interact entirely over the network. This means that if a user achieves remote code execution of the database, it does not extend to the web server. The design pattern of building multiple processes which exist independently and communicate externally is called microservices. This presents an interesting paradigm of small applications which can and often do run on separate physical hosts combining to provide a unified application experience.
 
-This work focuses on the application of namespaces to more conventional privilege separation. Working with a shim which orchestrates the process and namespace layout, Void Applications seek to provide a completely pruned minimal Linux experience to each Void Process within the application. This builds on much of the prior work to severely limit the access of processes in the application as much as possible, reducing the impact of a vulnerability in each part to the fullest. There is never a need to drop privileges as applications are created with the absolute minimum necessary to perform correctly. In Section \ref{sec:voiding} we discuss each namespace's role in Linux and how to create one which is empty, before explaining in Section \ref{sec:filling} how to reinsert just enough Linux for each process in an application to be able to complete useful work.
+This work focuses on the application of namespaces to more conventional privilege separation. Working with a shim which orchestrates the process and namespace layout, Void Applications seek to provide a completely pruned minimal Linux experience to each Void Process within the application. This builds on much of the prior work to severely limit the access of processes in the application as much as possible, reducing the impact of a vulnerability in each part to the fullest. There is never a need to drop privileges as applications are created with the absolute minimum necessary to perform correctly. In Chapter \ref{chap:entering-the-void} we discuss each namespace's role in Linux and how to create one which is empty, before explaining in Chapter \ref{chap:filling-the-void} how to reinsert just enough Linux for each process in an application to be able to complete useful work.
+
+\section{Summary}
+\todo{Summarise privilege separation.}
 
 
 \chapter{Entering the Void}
-\label{sec:voiding}
+\label{chap:entering-the-void}
 
-Isolating parts of a Linux system from the view of certain processes is achieved by using namespaces. Namespaces are commonly used to provide isolation in the context of containers, which provide the appearance of an isolated complete Linux environment to contained processes. Instead, with Void Processes, we target complete isolation. Rather than using namespaces to provide a view of an alternate full Linux system, they are used to provide a view of a system that is as minimal as possible, while still sitting atop the Linux kernel. In this section each namespace available in Linux is detailed, including how to take a fresh namespace of each kind and completely empty it for a Void Process. Section \ref{sec:filling} goes on to explain how necessary features for applications are added back in.
+Isolating parts of a Linux system from the view of certain processes is achieved by using namespaces. Namespaces are commonly used to provide isolation in the context of containers, which provide the appearance of an isolated complete Linux environment to contained processes. Instead, with Void Processes, we target complete isolation. Rather than using namespaces to provide a view of an alternate full Linux system, they are used to provide a view of a system that is as minimal as possible, while still sitting atop the Linux kernel. In this section each namespace available in Linux is detailed, including how to take a fresh namespace of each kind and completely empty it for a Void Process. Chapter \ref{chap:filling-the-void} goes on to explain how necessary features for applications are added back in.
 
 The full set of namespaces are represented in Table \ref{tab:namespaces}, in chronological order. The chronology of these is important in understanding the thought process behind some of the design decisions. The ease of creating an empty namespace varies massively, as although adding namespaces shared the goal of containerisation, they were completed by many different teams of people over a number of years. Some namespaces maintain strong connections to their parent, while others are created completely separate. We start with those that are most trivial to add, working up to the namespaces most intensely linked to their parents.
 
@@ -481,7 +491,7 @@ Although good isolation of the host system from the Void Process is provided, th
 An alternative implementation that would make implementing with the cgroups namespace easier would be one that condenses all of the processes in the sea groups name space into one parent process in the parent main space. This would have the effect of hiding underlying processes from the parent name space, while still allowing control over the sea groups tree as a whole. It would further provide better isolation of the child, as a newly spawned cgroups space would show an empty route that only contains the child process. This would also allow more effective interaction with user namespaces, as the child namespace would only have control over itself, allowing for full control without risking the rest of the tree. This is opposed to the current limited view of the cgroups tree, which appears to have limited usefulness.
 
 \chapter{Filling the Void}
-\label{sec:filling}
+\label{chap:filling-the-void}
 
 Once a set of namespaces to contain the Void Process have been created the goal is to reinsert enough to run the application, and nothing more. To allow for running applications as Void Processes with minimal kernel changes, this is done using a mixture of file-descriptor capabilities and adding elements to the namespaces. Capabilities allow for a clean experience where suitable, while adding elements to namespaces creates a more Linux-like experience for the application.
 
@@ -549,6 +559,7 @@ cgroup namespaces present some very interesting behaviour in this regard. What a
 
 
 \chapter{Building Applications}
+\label{chap:building-apps}
 
 \section{No Permissions}
 
@@ -583,11 +594,13 @@ Finally, this pair of decrypted request reader and response writer are handed to
 
 
 \chapter{Evaluation}
+\label{chap:evaluation}
 
 \todo{Write evaluation}
 
 
 \chapter{Conclusions}
+\label{chap:conclusions}
 
 \section{Related Work}
 
