@@ -32,6 +32,7 @@
 \usepackage{parskip}
 \usepackage{setspace}
 \usepackage{tabularx}
+\usepackage{hyperref}
 \usepackage{verbatim}
 \usepackage{xspace}
 
@@ -617,19 +618,11 @@ Finally, this pair of decrypted request reader and response writer are handed to
 \chapter{Conclusions}
 \label{chap:conclusions}
 
-\section{Related Work}
+The system built in this project enables running applications with minimal privilege in a Linux environment in a novel way. Performance is shown to be comparable, and demonstrates where the existing kernel setup provides inadequate performance for such applications. Design choices in the user-space kernel APIs for namespaces are discussed and contextualised, with suggestions offered for alternate designs.
 
-\subsection{Virtual Machines and Containers}
+Void Processes offer a new paradigm for application development which prioritises privilege separation above all else. Rather than focusing on limiting backward compatibility, applications often need to be completely rewritten in order to take advantage of improved isolation. The system is designed to support effective static analysis on applications, though this is not implemented at this stage.
 
-Virtual Machine solutions \citep{barham_xen_2003,vmware_inc_understanding_2008} provide the ability to split a single machine into multiple virtual machines. When placing a single application in each virtual machine, they are effectively isolated from one another. Full fat container solutions such as Docker \citep{merkel_docker_2014}, containerd [CN], and systemd-nspawn [CN] provide mechanisms to isolate an application almost completely from other applications running on a single machine. Some have claimed that this provides isolation superior to virtual machines \citep{soltesz_container-based_2007}.
-
-Both of these solutions are less effective at isolating parts of an application from itself [CN with research]. Consider running only a TLS web server in a virtual machine. Although other applications will be unable to access the certificates, as they are in different virtual machines, methods within the application that should not be able to access the certificates still can.
-
-While virtual machines and containers provide a strong isolation at the application level, they are not a compelling solution to intra-application privilege separation.
-
-\subsection{systemd}
-
-\texttt{systemd} [CN] provides a declarative interface to all of the process separation techniques used in this work. Rather than the responsibility of the programmer, creating these declarative descriptions is most commonly left to the package maintainers. This work seeks to provide similar capabilities to the people best suited to privilege separating an application: the developers.
+Finally, Void Processes provide a seamless experience without making kernel level changes, allowing for ease of deployment. Moreover, it runs on the Linux kernel, a production kernel and not a research kernel. Although the current kernel structure limits the performance of the work with namespace creation being the bottleneck, the feasibility of namespaces for process isolation is effectively demonstrated in a system that encourages application writers to develop with privilege separation as a first principle.
 
 \section{Future Work}
 
@@ -641,15 +634,11 @@ The primary future work to increase the utility of void processes is better perf
 
 Dynamic linking works correctly under the shim, however, it currently requires a high level of manual input. Given that the threat model in Section \ref{section:threat-model} specifies trusted binaries, it is feasible to add a pre-spawning phase which appends read-only libraries to the specification for each spawned process automatically before creating appropriate voids. This would allow anything which can link correctly on the host system to link correctly in Void Processes.
 
-\section{Conclusion}
-
-\todo{Write conclusion}
-
 
 \appendix
 \singlespacing
 
-\bibliographystyle{unsrt} 
+\bibliographystyle{plainnat} 
 \bibliography{references} 
 
 \end{document}
