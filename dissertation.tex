@@ -28,11 +28,11 @@
 \usepackage{graphicx}
 \usepackage{listings}
 \usepackage{multirow}
-\usepackage{natbib}
+\usepackage[square,numbers]{natbib}
 \usepackage{parskip}
 \usepackage{setspace}
 \usepackage{tabularx}
-\usepackage{hyperref}
+\usepackage[hidelinks]{hyperref}
 \usepackage{verbatim}
 \usepackage{xspace}
 
@@ -102,31 +102,31 @@ The question of what makes an operating system has been asked many times. There 
 
         \texttt{ipc}
             & Oct 2006 & \citep{korotaev_patch_2006}
-            & 2.6.19 & \citep{noauthor_linux_2006}
+            & 2.6.19 & \citep{linux_kernel_newbies_editors_linux_2006}
             &
             & \\
 
         \texttt{uts}
             & Oct 2006 & \citep{hallyn_patch_2006}
-            & 2.6.19 & \citep{noauthor_linux_2006}
+            & 2.6.19 & \citep{linux_kernel_newbies_editors_linux_2006}
             &
             & \\
 
         \texttt{user}
             & Jul 2007 & \citep{le_goater_user_2007}
-            & 2.6.23 & \citep{noauthor_linux_2007}
+            & 2.6.23 & \citep{linux_kernel_newbies_editors_linux_2007}
             & 2021-21284
             & \\
 
         \texttt{network}
             & Oct 2007 & \citep{biederman_net_2007}
-            & 2.6.24 & \citep{noauthor_linux_2008}
+            & 2.6.24 & \citep{linux_kernel_newbies_editors_linux_2008}
             & 2011-2189
             & \\
 
         \texttt{pid}
             & Oct 2006 & \citep{bhattiprolu_patch_2006}
-            & 2.6.24 & \citep{noauthor_linux_2008}
+            & 2.6.24 & \citep{linux_kernel_newbies_editors_linux_2008}
             & 2019-20794
             & \\
 
@@ -138,7 +138,7 @@ The question of what makes an operating system has been asked many times. There 
 
         \texttt{time}
             & Nov 2019 & \citep{vagin_ns_2020}
-            & 5.6 & \citep{noauthor_linux_2020}
+            & 5.6 & \citep{linux_kernel_newbies_editors_linux_2020}
             &
             &
 
@@ -183,7 +183,7 @@ The previous methods shown each suffer from knowing what their initial privilege
 
 While the methods looked at until now of privilege separation by process and time are supported by all Unices, object capabilities are a more niche system. Capsicum added object capabilities and was included in FreeBSD 10, released in January 2014 \citep{watson_capsicum_2010}. These capabilities may be shared between processes as with file descriptors. Capability mode removes access to all global namespaces from a process, allowing only operations on capabilities to continue. These capabilities are commonly those opened before the switch to capability mode, but they can also be sent and received (as file descriptors) or converted from a capability with more privilege to a capability with less.
 
-Although capabilities still require some additional work to ensure that only intentional capabilities remain accessible when entering capability mode, they come a lot closer to easy deprivileging than the previous solutions. However, their adoption remains limited at this point. They are unavailable in the latest Linux kernel release (5.17.7) at the time of writing.
+Although object capabilities still require some additional work to ensure that only intentional capabilities remain accessible when entering capability mode, they come a lot closer to easy deprivileging than the previous solutions. However, their adoption remains limited at this point. They are unavailable in the latest Linux kernel release (5.17.7) at the time of writing, and there are no plans for their adoption.
 
 \section{Privilege separation by perspective}
 
@@ -197,39 +197,49 @@ This work focuses on the application of namespaces to more conventional privileg
 \chapter{Entering the Void}
 \label{chap:entering-the-void}
 
-Isolating parts of a Linux system from the view of certain processes is achieved by using namespaces. Namespaces are commonly used to provide isolation in the context of containers, which provide the appearance of an isolated complete Linux environment to contained processes. Instead, with Void Processes, we target complete isolation. Rather than using namespaces to provide a view of an alternate full Linux system, they are used to provide a view of a system that is as minimal as possible, while still sitting atop the Linux kernel. In this section each namespace available in Linux is detailed, including how to take a fresh namespace of each kind and completely empty it for a Void Process. Chapter \ref{chap:filling-the-void} goes on to explain how necessary features for applications are added back in.
+Isolating parts of a Linux system from the view of certain processes is achieved using namespaces. Namespaces are commonly used to provide isolation in the context of containers, which provide the appearance of an isolated Linux system to contained processes. Instead, with Void Processes, we use namespaces to provide a view of a system that is as minimal as possible, while still sitting atop the Linux kernel. In this chapter each namespace available in Linux 5.15 LTS is discussed. The objects each namespace protects are presented and security vulnerabilities discussed. Then the method for entering a void with each namespace is given along with a discussion of the difficulties associated with this in current Linux. Chapter \ref{chap:filling-the-void} goes on to explain how necessary features for applications are added back in.
 
 The full set of namespaces are represented in Table \ref{tab:namespaces}, in chronological order. The chronology of these is important in understanding the thought process behind some of the design decisions. The ease of creating an empty namespace varies massively, as although adding namespaces shared the goal of containerisation, they were completed by many different teams of people over a number of years. Some namespaces maintain strong connections to their parent, while others are created with absolute separation. We start with those that are most trivial to add, working up to the namespaces most intensely linked to their parents.
 
 \section{ipc namespaces}
 \label{sec:voiding-ipc}
 
-IPC namespaces isolate two mechanisms that Linux provides for IPC which aren't controlled by the filesystem. System V IPC and POSIX message queues are each accessed in a global namespace of keys. This has created issues in the past with attempting to run multiple instances of PostgreSQL on a single machine, as both instances tried to create a System V IPC entry with the same key [CN]. IPC namespaces solve this effectively for containers by creating a new scoped namespace. Processes are a member of one and only one IPC namespace, allowing the familiar global key APIs. IPC namespaces are optimal for creating Void Processes. From the manual page \citep{free_software_foundation_ipc_namespaces7_2021}:
+IPC namespaces isolate two mechanisms that Linux provides for IPC which aren't controlled by the filesystem. System V IPC and POSIX message queues are each accessed in a global namespace of keys. This has created issues in the past with attempting to run multiple instances of PostgreSQL on a single machine, as both instances use System V IPC objects which collide \citep[§4.3]{barham_xen_2003}. IPC namespaces solve this effectively for containers by creating a new scoped namespace. Processes are a member of one and only one IPC namespace, allowing the familiar global key APIs.
+
+IPC namespaces are optimal for creating Void Processes. From the manual page \citep{free_software_foundation_ipc_namespaces7_2021}:
 
 \say{Objects created in an IPC namespace are visible to all other processes that are members of that namespace, but are not visible to  processes  in  other  IPC  namespaces.}
 
 This provides exactly the correct semantics for a Void Process. IPC objects are visible within a namespace if and only if they are created within that namespace. Therefore, a new namespace is entirely empty, and no more work need be done.
 
+\todo{Add vulnerabilities protected from. Discuss lack of vulnerabilities relating to the namespace itself.}
+
 \section{uts namespaces}
 \label{sec:voiding-uts}
 
-UTS namespaces provide isolation of the hostname and domain name of a system between processes. Similarly to IPC namespaces, all processes in the same namespace see the same results for each of these values. This is useful when creating containers. If unable to hide the hostname, each container would look like the same machine. Unlike IPC namespaces, UTS namespaces are copy-on-write. Each of these values in the child is initialised as the same as the parent.
+UTS namespaces provide isolation of the hostname and domain name of a system between processes. Similarly to IPC namespaces, all processes in the same namespace see the same results for each of these values. This is useful when creating containers. If unable to hide the hostname, each container would look like the same machine. Unlike IPC namespaces, UTS namespaces are inherit their values. Each of the hostname and domain name in the new namespace is initialised to the values of the parent namespace.
 
-As the copied value does give information about the world outside of the Void Process, slightly more must be done than placing the process in a new namespace. Fortunately this is easy for UTS namespaces, as the host name and domain name can be set to constants, removing any link to the parent.
+As the inherited value does give information about the world outside of the Void Process, slightly more must be done than placing the process in a new namespace. Fortunately this is easy for UTS namespaces, as the host name and domain name can be set to constants, removing any link to the parent. Although the implementation of this is trivial, it highlights how easy the information passing elements of each namespace are to miss if manually implementing isolation with namespaces.
+
+Searching the list of released CVEs for both "clock`` and "time linux`` (time itself revealed significantly too many results to parse) shows no vulnerabilities in the time subsystem on Linux, or the time namespaces themselves. This supports not including time namespaces at this stage, as their range is very limited, particularly in terms of isolation from vulnerabilities.
 
 \section{time namespaces}
 \label{sec:voiding-time}
 
-Time namespaces are the final namespace added at the time of writing, added in kernel version 5.6 \citep{noauthor_linux_2020}. The motivation for adding time namespaces is given in the manual page \citep{free_software_foundation_time_namespaces7_2021}:
+Time namespaces are the final namespace added at the time of writing, added in kernel version 5.6 \citep{linux_kernel_newbies_editors_linux_2020}. The motivation for adding time namespaces is given in the manual page \citep{free_software_foundation_time_namespaces7_2021}:
 
 \say{The  motivation  for adding time namespaces was to allow the monotonic and boot-time clocks to maintain consistent values during container migration and checkpoint/restore.}
 
-That is, time namespaces virtualise the appearance of system uptime to processes, rather than attempting to virtualise the wall clock time. This is important for processes that depend on time in primarily one situation: migration. If an uptime dependent process is migrated from a machine that has been up for a week to a machine that was booted a minute ago, the guarantees provided by the clocks \texttt{CLOCK\_MONOTONIC} and \texttt{CLOCK\_BOOTTIME} no longer hold. This results in time namespaces having very limited usefulness in a system that does not support migration, such as the one presented here. Perhaps randomised offsets would hide some information about the system, but the usefulness is limited. Time namespaces are thus avoided in this implementation.
+That is, time namespaces virtualise the appearance of system uptime to processes. They do not attempt to virtualise wall clock time. This is important for processes that depend on time in primarily one situation: migration. If an uptime dependent process is migrated from a machine that has been up for a week to a machine that was booted a minute ago, the guarantees provided by the clocks \texttt{CLOCK\_MONOTONIC} and \texttt{CLOCK\_BOOTTIME} no longer hold. This results in time namespaces having very limited usefulness in a system that does not support migration, such as the one presented here. Perhaps randomised offsets would hide some information about the system, but the usefulness is limited. Time namespaces are thus avoided in this implementation.
+
+\todo{Add vulnerabilities protected from. Discuss lack of vulnerabilities relating to the namespace itself.}
 
 \section{network namespaces}
 \label{sec:voiding-net}
 
-Similarly to IPC, they present the optimal namespace for running a Void Process. Creating a new network namespace immediately creates a namespace containing only a local loopback adapter. This means that the new network namespace has no link whatsoever to the creating network namespace, only supporting internal communication. To add a link, one can create a virtual Ethernet pair with one adapter in each namespace (see Figure \ref{fig:virtual-ethernet}). Alternatively, one can create a Wireguard adapter with sending and receiving sockets in one namespace and the VPN adapter in another \citep[§7.3]{donenfeld_wireguard_2017}. These methods allow for very high levels of separation while still maintaining access to the primary resource - the Internet or wider network.
+Network namespaces on Linux isolate the system resources related to networking. These include network interfaces themselves, IP routing tables, firewall rules and the \texttt{/proc/net} directory. This level of isolation allows a network stack that operates completely independently to exist on a single kernel.
+
+Similarly to IPC, network namespaces present the optimal namespace for running a Void Process. Creating a new network namespace immediately creates a namespace containing only a local loopback adapter. This means that the new network namespace has no link whatsoever to the creating network namespace, only supporting internal communication. To add a link, one can create a virtual Ethernet pair with one adapter in each namespace (Figure \ref{fig:virtual-ethernet}). Alternatively, one can create a Wireguard adapter with sending and receiving sockets in one namespace and the VPN adapter in another \citep[§7.3]{donenfeld_wireguard_2017}. These methods allow for very high levels of separation while still maintaining access to the primary resource - the Internet or wider network. Further, this design places the management of how connected a namespace is to the parent in user-space. This is a significant difference compared to some of the namespaces discussed later in this chapter.
 
 \begin{figure}
 \begin{minipage}{.45\textwidth}
@@ -269,34 +279,35 @@ PING 192.168.0.1 (192.168.0.1) 56(84) bytes of data.
 \label{fig:virtual-ethernet}
 \end{figure}
 
+Network namespaces are also the first mentioned to control access to \texttt{procfs}. \texttt{/proc} holds a pseudo-filesystem which controls access to many of the kernel data structures that aren't accessed by system calls. Seeing the intended behaviour here requires remounting \texttt{/proc}, which must be done with extreme care so as not to overwrite it for every other process. In a Void Process this is handled by automatically voiding the mount namespace, meaning that this does not need to be intentionally taken care of.
+
+\todo{Add vulnerabilities protected from. Discuss lack of vulnerabilities relating to the namespace itself.}
 
 \section{pid namespaces}
 \label{sec:voiding-pid}
 
-PID namespaces create a mapping from the process IDs inside the namespace to process IDs in the parent namespace. This continues until processes reach the top-level PID namespace. This isolation behaviour is different to that of some other namespaces, as each process within the namespace represents a process in the parent namespace too, albeit with different identifiers.
+PID namespaces create a mapping from the process IDs inside the namespace to process IDs in the parent namespace. This continues until processes reach the top-level, named init, PID namespace. This isolation behaviour is different to that of the namespaces discussed thus far, as each process within the namespace represents a process in the parent namespace too, albeit with different identifiers.
 
-Although PID namespaces work quite well for creating a Void Process from the perspective of the inside process, some care must be taken in the implementation, as the actions of PID namespaces are highly affected by others. Some examples of this slightly unusual behaviour are shown in Listing \ref{lst:unshare-pid}.
+As with network namespaces, PID namespaces have a significant effect on \texttt{/proc}. Further, they cause some unusual behaviour regarding the PID 1 (init) process in the new namespace. These behaviours are shown in Listing \ref{lst:unshare-pid}. The first behaviour shown is that an \texttt{unshare(CLONE\_PID)} call followed immediately by an \texttt{exec} does not create a working shell. The reason for this is that the first process created in the new namespace is given PID 1 and acts as an init process. That is, whichever process the shell spawns first becomes the init process of the namespace, and when that process dies, the namespace can no longer create new processes. This behaviour is avoided by either calling \texttt{unshare(2)} followed by \texttt{fork(2)}, or utilising \texttt{clone(2)} instead, both of which ensure that the correct process is created first in the new namespace. The \texttt{unshare(1)} binary provides a fork flag to solve this, while the implementation of the Void Orchestrator uses \texttt{clone(2)} which has the semantics of combining the two into a single syscall.
 
-The first behaviour shown is that an \texttt{unshare(CLONE\_PID)} call followed immediately by an \texttt{exec} does not have the desired behaviour. The reason for this is that the first process created in the new namespace is given PID 1 and acts as an init process. That is, whichever process the shell spawns first becomes the init process of the namespace, and when that process dies, the namespace can no longer create new processes. This behaviour is avoided by either calling \texttt{unshare(2)} followed by \texttt{fork(2)}, or utilising \texttt{clone(2)} instead. The \texttt{unshare(1)} binary provides a fork flag to solve this, while the implementation of the Void Orchestrator uses \texttt{clone(2)} which has the semantics of combining the two into a single syscall.
-
-Secondly, we see that even in a shell that appears to be working correctly, processes from outside of the new PID namespace are still visible. This behaviour occurs because the mount of \texttt{/proc} visible to the process in the new PID namespace is the same as the init process. This is solved by remounting \texttt{/proc}, available to \texttt{unshare(3)} with the \texttt{---mount-proc} flag. Care must be taken that this mount is completed in a new mount namespace, or else processes outside of the PID namespace will be affected. The Void Orchestrator again avoids this by voiding the mount namespace entirely, so any access to proc must be either bound to outside the namespace deliberately or freshly mounted.
+Secondly, we see that even in a shell that appears to be working correctly, processes from outside of the new PID namespace are still visible. This behaviour occurs because the mount of \texttt{/proc} visible to the process in the new PID namespace is the same as the init process. This is solved by remounting \texttt{/proc}, available to \texttt{unshare(3)} with the \texttt{---mount-proc} flag. Care must be taken that this mount is completed in a new mount namespace, or else processes outside of the PID namespace will be affected. The Void Orchestrator again avoids this by voiding the mount namespace entirely, meaning that any access to \texttt{procfs} must be either freshly mounted or bound to outside the namespace intentionally.
 
 \lstset{caption={Unshare behaviour with PID namespaces, with and without forking and remounting proc.}}
 \begin{lstlisting}[float,label={lst:unshare-pid}]
-$ unshare -p
+$ unshare --pid
 -bash: fork: Cannot allocate memory
 # (new shell in new pid namespace)
 # ps ax | tail -n 3
 -bash: fork: Cannot allocate memory
 
-$ unshare --fork -p
+$ unshare --fork --pid
 # (new shell in new pid namespace)
 # ps ax | tail -n 3
 2645 ?        I      0:00 [kworker/...]
 2689 pts/1    R+     0:00 ps ax
 2690 pts/1    S+     0:00 tail -n 2
 
-$ unshare --fork --mount-proc -p
+$ unshare --fork --mount-proc --pid
 # (new shell in new pid namespace)
 # ps ax | tail -n 3
  1 pts/1    S      0:00 -bash
@@ -304,6 +315,8 @@ $ unshare --fork --mount-proc -p
 16 pts/1    S+     0:00 tail -n 3
 
 \end{lstlisting}
+
+\todo{Add vulnerabilities protected from. Discuss lack of vulnerabilities relating to the namespace itself.}
 
 \section{mount namespaces}
 \label{sec:voiding-mount}
@@ -471,6 +484,8 @@ If, instead, one wishes to continue running the existing binary, this is possibl
 
 The API is particularly unfriendly to creating a Void Process. The creation of mount namespaces is copy-on-write, and many filesystems are mounted shared. This means that they propagate changes back through namespace boundaries. As the mount namespace does not allow for creating an entirely empty root, extra care must be taken in separating processes. The method taken in this system is mounting a new \texttt{tmpfs} file system in a new namespace, which doesn't propagate to the parent, and using the \texttt{pivot\_root(8)} command to make this the new root. By pivoting to the \texttt{tmpfs}, the old root exists as the only reference in the otherwise empty \texttt{tmpfs}. Finally, after ensuring the old root is set to \texttt{MNT\_PRIVATE} to avoid propagation, the old root can be lazily detached. This allows the binary from the parent namespace, the shim in this case, to continue running correctly. Any new processes only have access to the materials in the empty \texttt{tmpfs}. This new \texttt{tmpfs} never appears in the parent namespace, separating the Void Process effectively from the parent namespace.
 
+\todo{Add vulnerabilities protected from. Discuss lack of vulnerabilities relating to the namespace itself.}
+
 \section{user namespaces}
 \label{sec:voiding-user}
 
@@ -479,6 +494,8 @@ User namespaces provide isolation of security between processes. They isolate ui
 Similarly to many other namespaces, user namespaces suffer from needing to limit their isolation. For a user namespace to be useful, some relation needs to exist between processes in the user namespace and objects outside. That is, if a process in a user namespace shares a filesystem with a process in the parent namespace, there should be a way to share credentials. To achieve this with user namespaces a mapping between users in the namespace and users outside exists. The most common use-case is to map root in the user namespace to the creating user outside, meaning that a process with full privileges in the namespace will be constrained to the creating user's ambient authority.
 
 To create an effective Void Process content must be written to the files \texttt{/proc/[pid]/uid\_map} and \texttt{/proc/[pid]/gid\_map}. In the case of the shim uid 0 and gid 0 are mapped to the creating user. This is done first such that the remaining stages in creating a Void Process can have root capabilities within the user namespace - this is not possible prior to writing to these files. Otherwise, \texttt{CLONE\_NEWUSER} combines effectively with other namespace flags, ensuring that the user namespace is created first. This enables the other namespaces to be created without additional permissions.
+
+\todo{Discuss how intense the restrictions on who can do what are. Add vulnerabilities protected from. Discuss lack of vulnerabilities relating to the namespace itself.}
 
 \section{cgroup namespaces}
 \label{sec:voiding-cgroup}
@@ -491,11 +508,20 @@ cgroup namespaces provide limited isolation of the cgroup hierarchy between proc
     \item Unshare the cgroup namespace.
 \end{enumerate}
 
-This process excludes the cgroup namespace from the initial \texttt{clone(3)} call, as the cloned process must be moved before creating the new namespace. By following this sequence of calls, the process in the void can only see the leaf which contains itself and nothing else, limiting access to the host system.  This is the approach taken in this piece of work. This presents the one point where running the shim with ambient authority rather than high capabilities is potentially limiting. In order to move the process into a leaf the shim must have sufficient authority to modify the cgroup hierarchy. On systemd these processes will be launched underneath a user slice and will have sufficient permissions, but this may vary between systems. This leaves cgroups the most weakly implemented namespace at present.
+This process excludes the cgroup namespace from the initial \texttt{clone(3)} call, as the cloned process must be moved before creating the new namespace. By following this sequence of calls, the process in the void can only see the leaf which contains itself and nothing else, limiting access to the host system.  This is the approach taken in this piece of work. Running the shim with ambient autrhoirty here presents an issue, as the cgroup hierarchy relies on discretionary access control. In order to move the process into a leaf the shim must have sufficient authority to modify the cgroup hierarchy. On systemd these processes will be launched underneath a user slice and will have sufficient permissions, but this may vary between systems. This leaves cgroups the most weakly implemented namespace at present.
 
-Although good isolation of the host system from the Void Process is provided, the Void Process is in no way hidden from the host. There exists only one cgroups v2 hierarchy on a system (cgroups v1 are ignored for clarity), where resources are delegated through each. This means that all processes contained within the hierarchy must appear in the primary hierarchy, such that the distribution of the single set of system resources can be centrally controlled. This behaviour is similar to the aforementioned pid namespaces, where each process has a distinct PID in each of its parents, but does show up in each. Hiding from the host has little value as a root user there can inspect each namespace manually.
+Although good isolation of the host system from the Void Process is provided, the Void Process is in no way hidden from the host. There exists only one cgroups v2 hierarchy on a system (cgroups v1 are ignored for clarity), where resources are delegated through each. This means that all processes contained within the hierarchy must appear in the init hierarchy, such that the distribution of the single set of system resources can be centrally controlled. This behaviour is similar to the aforementioned pid namespaces, where each process has a distinct PID in each of its parents, but does show up in each.
 
-An alternative implementation that would make implementing with the cgroups namespace easier would be one that condenses all of the processes in the sea groups name space into one parent process in the parent main space. This would have the effect of hiding underlying processes from the parent name space, while still allowing control over the sea groups tree as a whole. It would further provide better isolation of the child, as a newly spawned cgroups space would show an empty route that only contains the child process. This would also allow more effective interaction with user namespaces, as the child namespace would only have control over itself, allowing for full control without risking the rest of the tree. This is opposed to the current limited view of the cgroups tree, which appears to have limited usefulness.
+There are two problems when working with cgroups namespaces in user-space: needing sufficient discretionary access control, and leaving the control of individual application processes in a global namespace. An alternative kernel design would increase the utility by solving both of these problems. A process in a new cgroups namespace could instead create a detached hierarchy with the process as a leaf of the root and full permissions in the user-namespace that created it. The main cgroups hierarchy could then still see a single application to control, while the application itself would have full access over sharing its resources.  This presents the ability for mechanisms of managing cgroups to clash between the namespaces, as the outer namespace would now have control over what resources are delegated to the application rather than each process in the application. Such a system would also provide improved behaviour over the current, which requires a delegation flag to be handed to the manager informing it to go no further down the tree. This would be significantly better enforced with namespaces. That is, the main namespace could be handled by \texttt{systemd}, while the \texttt{/docker} namespace could be internally managed by docker. This would allow \texttt{systemd} to move the \texttt{/docker} namespace around as required, with no awareness of the choices made internally.
+
+\todo{Add vulnerabilities protected from. Discuss lack of vulnerabilities relating to the namespace itself.}
+
+\section{Summary}
+
+In this chapter I presented the 8 namespaces available in Linux 5.15. What each namespace protects against, how to completely empty each created namespace, and the constraints in doing so were presented. For cgroup and mount namespaces, alternative designs that increase the usability of the namespaces were discussed.
+
+Now that the motivation for emptying namespaces has been shown with the avoidance of vulernabilities, facilities to re-expose some of the system must be introduced in order to make useful applications. The methods for reintroducing parts of the system are given in Chapter \ref{chap:filling-the-void}, before demonstrating how to build useful applications in Chapter \ref{chap:building-apps}.
+
 
 \chapter{Filling the Void}
 \label{chap:filling-the-void}
@@ -634,11 +660,15 @@ The primary future work to increase the utility of void processes is better perf
 
 Dynamic linking works correctly under the shim, however, it currently requires a high level of manual input. Given that the threat model in Section \ref{section:threat-model} specifies trusted binaries, it is feasible to add a pre-spawning phase which appends read-only libraries to the specification for each spawned process automatically before creating appropriate voids. This would allow anything which can link correctly on the host system to link correctly in Void Processes.
 
+\subsection{Dynamic requests}
+
+In Section \ref{sec:filling-net} a system was presented for dynamically requesting statically specified network sockets. This system of requests back to the shim could be extended to more dynamic behaviour for software that requires it. Some software, particularly that which interfaces with the user, is not able to statically specify their requirements before starting. By specifying instead a range of requests which are legal then making them dynamically, Void Processes would be able to support more software.
+
 
 \appendix
 \singlespacing
 
-\bibliographystyle{plainnat} 
+\bibliographystyle{PhDbiblio-url} 
 \bibliography{references} 
 
 \end{document}
