@@ -221,7 +221,7 @@ UTS namespaces provide isolation of the hostname and domain name of a system bet
 
 As the inherited value does give information about the world outside of the Void Process, slightly more must be done than placing the process in a new namespace. Fortunately this is easy for UTS namespaces, as the host name and domain name can be set to constants, removing any link to the parent. Although the implementation of this is trivial, it highlights how easy the information passing elements of each namespace are to miss if manually implementing isolation with namespaces.
 
-Searching the list of released CVEs for both "clock`` and "time linux`` (time itself revealed significantly too many results to parse) shows no vulnerabilities in the time subsystem on Linux, or the time namespaces themselves. This supports not including time namespaces at this stage, as their range is very limited, particularly in terms of isolation from vulnerabilities.
+\todo{Add vulnerabilities protected from. Discuss lack of vulnerabilities relating to the namespace itself.}
 
 \section{time namespaces}
 \label{sec:voiding-time}
@@ -232,7 +232,7 @@ Time namespaces are the final namespace added at the time of writing, added in k
 
 That is, time namespaces virtualise the appearance of system uptime to processes. They do not attempt to virtualise wall clock time. This is important for processes that depend on time in primarily one situation: migration. If an uptime dependent process is migrated from a machine that has been up for a week to a machine that was booted a minute ago, the guarantees provided by the clocks \texttt{CLOCK\_MONOTONIC} and \texttt{CLOCK\_BOOTTIME} no longer hold. This results in time namespaces having very limited usefulness in a system that does not support migration, such as the one presented here. Perhaps randomised offsets would hide some information about the system, but the usefulness is limited. Time namespaces are thus avoided in this implementation.
 
-\todo{Add vulnerabilities protected from. Discuss lack of vulnerabilities relating to the namespace itself.}
+Searching the list of released CVEs for both "clock`` and "time linux`` (time itself revealed significantly too many results to parse) shows no vulnerabilities in the time subsystem on Linux, or the time namespaces themselves. This supports not including time namespaces at this stage, as their range is very limited, particularly in terms of isolation from vulnerabilities.
 
 \section{network namespaces}
 \label{sec:voiding-net}
