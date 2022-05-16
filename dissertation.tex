@@ -1,75 +1,168 @@
-%% 
-%% ACS project dissertation template. 
-%% 
-%% Currently designed for printing two-sided, but if you prefer to 
-%% print single-sided just remove ",twoside,openright" from the 
-%% \documentclass[] line below. 
-%%
-%%
-%%   SMH, May 2010. 
+% Suggested LaTeX style template for Masters project report submitted at the
+% Department of Computer Science and Technology
+%
+% Markus Kuhn, May 2022
+% (borrowing elements from an earlier template by Steven Hand)
 
+\documentclass[12pt,a4paper,twoside]{report}
+% append option ",openright" after "twoside" if you prefer each chapter
+% to start on a recto (odd-numbered) page in a double-sided printout
 
-\documentclass[a4paper,12pt,twoside,openright]{report}
+\usepackage[pdfborder={0 0 0}]{hyperref}  % turns references into hyperlinks
+\usepackage[vmargin=20mm,hmargin=25mm]{geometry}  % adjust page margins
+\usepackage{graphicx} % allows inclusion of PDF, PNG and JPG images
+\usepackage{parskip}  % separate paragraphs with vertical space
+                      % instead of indenting their first line
+\usepackage{setspace} % for \onehalfspacing
+\usepackage{refcount} % for counting pages
+\usepackage{upquote}  % for correct quotation marks in verbatim text
 
-
-%%
-%% EDIT THE BELOW TO CUSTOMIZE
-%%
-
-\def\authorname{Jake Hillion\xspace}
-\def\authorcollege{Queens' College\xspace}
-\def\authoremail{Jake.Hillion@cl.cam.ac.uk}
-\def\dissertationtitle{Void Processes: minimising privilege by default}
-\def\wordcount{5}
-
-\usepackage{courier}
-\usepackage{dirtytalk} %quotations
-\usepackage{epsfig}
-\usepackage{graphicx}
-\usepackage{listings}
-\usepackage{multirow}
-\usepackage[square,numbers]{natbib}
-\usepackage{parskip}
-\usepackage{setspace}
-\usepackage{tabularx}
-\usepackage[hidelinks]{hyperref}
-\usepackage{verbatim}
-\usepackage{xspace}
+\usepackage{courier}                % better listings font
+\usepackage{dirtytalk}              % quotations
+\usepackage[square,numbers]{natbib} % citations
+\usepackage{listings}               % code listings
+\usepackage{multirow}               % multi-row cells in tables
 
 % TODO: remove me
 \usepackage{todonotes}
 \setuptodonotes{inline}
 
-\setcounter{tocdepth}{1} % stop toc at sections
+\newif\ifsubmission % Boolean flag for distinguishing submitted/final version
 
-%% START OF DOCUMENT
+% Change the following lines to your own project title, name, college, course
+\title{Void Processes: Minimising privilege by default}
+\author{Jake Hillion}
+\date{June 2022}
+\newcommand{\candidatenumber}{2373A}
+\newcommand{\college}{Queens' College}
+\newcommand{\course}{Computer Science Tripos, Part III}
+%\newcommand{\course}{Master of Philosophy in Advanced Computer Science}
+
+% Select which version this is:
+% For the (anonymous) submission (without your name or acknowledgements)
+% uncomment the following line (or let the makefile do this for you)
+%\submissiontrue
+% For the final version (with your name) leave the above commented.
+
 \begin{document}
-%TC:ignore
 
-%% FRONTMATTER (TITLE PAGE, DECLARATION, ABSTRACT, ETC) 
-\pagestyle{empty}
-\singlespacing
-\input{titlepage}
+\begin{sffamily} % use a sans-serif font for the pro-forma cover sheet
+
+\begin{titlepage}
+\makeatletter
+
+% University logo with shield hanging in left margin
+\hspace*{-14mm}\includegraphics[width=65mm]{logo-dcst-colour}
+
+\ifsubmission
+
+% submission proforma cover page for blind marking
+\begin{Large}
+\vspace{20mm}
+Research project report title page
+
+\vspace{35mm}
+Candidate \candidatenumber
+
+\vspace{42mm}
+\textsl{``\@title''}
+
+\end{Large}
+
+\else
+
+% regular cover page
+\begin{center}
+\Huge
+\vspace{\fill}
+
+\@title
+\vspace{\fill}
+
+\@author
+\vspace{10mm}
+
+\Large
+\college
+\vspace{\fill}
+
+\@date
+\vspace{\fill}
+
+\end{center}
+
+\fi
+
+\vspace{\fill}
+\begin{center}
+Submitted in partial fulfillment of the requirements for the\\
+\course
+\end{center}
+
+\makeatother
+\end{titlepage}
+
+\newpage
+
+Total page count: \pageref{lastpage}
+
+% calculate number of pages from
+% \label{firstcontentpage} to \label{lastcontentpage} inclusive
+\makeatletter
+\@tempcnta=\getpagerefnumber{lastcontentpage}\relax%
+\advance\@tempcnta by -\getpagerefnumber{firstcontentpage}%
+\advance\@tempcnta by 1%
+\xdef\contentpages{\the\@tempcnta}%
+\makeatother
+
+Main chapters (excluding front-matter, references and appendix):
+\contentpages~pages
+(pp~\pageref{firstcontentpage}--\pageref{lastcontentpage})
+
+Main chapters word count: 467
+
+Methodology used to generate that word count:
+
+[For example:
+
+\begin{quote}
+\begin{verbatim}
+$ make wordcount
+gs -q -dSAFER -sDEVICE=txtwrite -o - \
+   -dFirstPage=6 -dLastPage=11 report-submission.pdf | \
+egrep '[A-Za-z]{3}' | wc -w
+467
+\end{verbatim}
+\end{quote}
+
+]
+
+\end{sffamily}
+
 \onehalfspacing
-\input{declaration}
-\singlespacing
-\input{abstract}
 
-\pagenumbering{roman}
-\setcounter{page}{0}
-\pagestyle{plain}
+\chapter*{Abstract}
+
+Write a summary of the whole thing. Make sure it fits on one page.
+
+\ifsubmission\else
+% not included in submission for blind marking:
+
+\chapter*{Acknowledgements}
+
+This project would not have been possible without the wonderful
+support of \ldots [optional]
+
+\fi
+\cleardoublepage % preserve page numbers after missing acknowledgements
+
+\setcounter{tocdepth}{1} % only show up to sections in the table of contents
 \tableofcontents
-
 %\listoffigures
 %\listoftables
 
-\onehalfspacing
-\setstretch{1.2}
-
-%TC:endignore
-%% START OF MAIN TEXT
-
 \chapter{Introduction}
+\label{firstcontentpage} % start page count here
 \label{chap:introduction}
 
 \pagenumbering{arabic} 
@@ -664,11 +757,13 @@ Dynamic linking works correctly under the shim, however, it currently requires a
 
 In Section \ref{sec:filling-net} a system was presented for dynamically requesting statically specified network sockets. This system of requests back to the shim could be extended to more dynamic behaviour for software that requires it. Some software, particularly that which interfaces with the user, is not able to statically specify their requirements before starting. By specifying instead a range of requests which are legal then making them dynamically, Void Processes would be able to support more software.
 
-
-\appendix
-\singlespacing
+\label{lastcontentpage} % end page count here
 
 \bibliographystyle{PhDbiblio-url} 
-\bibliography{references} 
+\bibliography{references}
 
+\appendix
+
+
+\label{lastpage}
 \end{document}
