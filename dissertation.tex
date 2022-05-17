@@ -642,13 +642,13 @@ Given that statically giving sockets is infeasible and adding a firewall does no
 \section{user namespace}
 \label{sec:filling-user}
 
-Filling a user namespace is a slightly odd concept compared to the namespaces already discussed in this section. As stated in Section \ref{sec:voiding-user}, a user namespace comes with no implicit mapping of users whatsoever. To enable applications to be run with bounded authority, a single mapping is added by the Void Orchestrator of \texttt{root} in the child user namespace to the launching UID in the parent namespace. This means that the user with highest privilege in the container, \texttt{root}, will be limited to the access of the launching user. The behaviour of mapping \texttt{root} to the calling user is shown with the \texttt{unshare(1)} command in Listing \ref{lst:mapped-root-directory}, where a directory owned by the calling user, \texttt{jsh77}, appears to be owned by \texttt{root} in the new namespace. A file owned by \texttt{root} in the parent namespace appears to be owned by \texttt{nobody} in the child namespace, as no mapping exists for that file's user.
+Filling a user namespace is a slightly odd concept compared to the namespaces already discussed in this section. As stated in Section \ref{sec:voiding-user}, a user namespace comes with no implicit mapping of users whatsoever. To enable applications to be run with bounded authority, a single mapping is added by the Void Orchestrator of \texttt{root} in the child user namespace to the launching UID in the parent namespace. This means that the user with highest privilege in the container, \texttt{root}, will be limited to the access of the launching user. The behaviour of mapping \texttt{root} to the calling user is shown with the \texttt{unshare(1)} command in Listing \ref{lst:mapped-root-directory}, where a directory owned by the calling user, \texttt{alice}, appears to be owned by \texttt{root} in the new namespace. A file owned by \texttt{root} in the parent namespace appears to be owned by \texttt{nobody} in the child namespace, as no mapping exists for that file's user.
 
 \lstset{language=C,caption={A directory listing before and after entering a user namespace with mapped root.}}
 \begin{lstlisting}[float,label={lst:mapped-root-directory}]
 $ ls -ld repos owned_by_root
 -rw-r--r-- 1 root  root     0 May  7 22:13 owned_by_root
-drwxrwxr-x 7 jsh77 jsh77 4096 Feb 27 17:52 repos
+drwxrwxr-x 7 alice alice 4096 Feb 27 17:52 repos
 
 $ unshare -U --map-root
 
