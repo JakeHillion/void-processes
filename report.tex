@@ -20,15 +20,15 @@
 \usepackage{courier}                % better listings font
 \usepackage{dirtytalk}              % quotations
 \usepackage[square,numbers]{natbib} % citations
-\usepackage{listings}               % code listings
+\usepackage{minted}                 % code listings
 \usepackage{multirow}               % multi-row cells in tables
-\usepackage{makecell}              % multi-line cells in tables
+\usepackage{makecell}               % multi-line cells in tables
 
 % TODO: remove me
 \usepackage{todonotes}
 \setuptodonotes{inline}
 
-\lstset{basicstyle=\footnotesize}
+\setminted{fontsize=\footnotesize,frame=lines,stripnl=false}
 
 \newif\ifsubmission % Boolean flag for distinguishing submitted/final version
 
@@ -144,7 +144,7 @@ Words outside text (captions, etc.): 128
 
 \chapter*{Abstract}
 
-Write a summary of the whole thing. Make sure it fits on one page.
+\todo{Write abstract.}
 
 \ifsubmission\else
 % not included in submission for blind marking:
@@ -350,8 +350,7 @@ Similarly to IPC, network namespaces present the optimal namespace for running a
 \begin{figure}
 \begin{minipage}{.49\textwidth}
 
-\lstset{caption={}}
-\begin{lstlisting}[frame=tlrb,showlines=true]
+\begin{minted}{shell-session}
 #
 #
 # ip link add veth0 type veth peer veth1
@@ -361,13 +360,12 @@ Similarly to IPC, network namespaces present the optimal namespace for running a
 # ping -c 1 192.168.0.2
 PING 192.168.0.2 (192.168.0.2) 56(84) bytes of data.
 64 bytes from 192.168.0.2: icmp_seq=1 ttl=64 time=0.317 ms
-\end{lstlisting}
+\end{minted}
 
 \end{minipage}\hfill
 \begin{minipage}{.49\textwidth}
 
-\lstset{caption={}}
-\begin{lstlisting}[frame=tlrb]
+\begin{minted}[frame=lines]{shell-session}
 # unshare -n
 # ip netns attach test $$
 #
@@ -377,7 +375,7 @@ PING 192.168.0.2 (192.168.0.2) 56(84) bytes of data.
 # ping -c 1 192.168.0.1
 PING 192.168.0.1 (192.168.0.1) 56(84) bytes of data.
 64 bytes from 192.168.0.1: icmp_seq=1 ttl=64 time=0.107 ms
-\end{lstlisting}
+\end{minted}
 
 \end{minipage}
 
@@ -398,8 +396,11 @@ As with network namespaces, PID namespaces have a significant effect on \texttt{
 
 Secondly, we see that even in a shell that appears to be working correctly, processes from outside of the new PID namespace are still visible. This behaviour occurs because the mount of \texttt{/proc} visible to the process in the new PID namespace is the same as the init process. This is solved by remounting \texttt{/proc}, available to \texttt{unshare(3)} with the \texttt{---mount-proc} flag. Care must be taken that this mount is completed in a new mount namespace, or else processes outside of the PID namespace will be affected. The Void Orchestrator again avoids this by voiding the mount namespace entirely, meaning that any access to \texttt{procfs} must be either freshly mounted or bound to outside the namespace intentionally. Remounting a fresh \texttt{procfs} is unfortunately not trivial on most systems, and will be discussed with user namespaces (§\ref{sec:voiding-user}).
 
-\lstset{caption={Unshare behaviour with pid namespaces, with and without forking and remounting proc. Spawning a process without explicitly forking creates a broken shell. Forking creates a shell that works, but the PID namespace appears unchanged to processes that inspect it. Remounting proc and forking provides a working shell in which processes see the new pid namespace.}}
-\begin{lstlisting}[float,label={lst:unshare-pid}]
+\begin{listing}
+\label{lst:unshare-pid}
+\caption{Unshare behaviour with pid namespaces, with and without forking and remounting proc. Spawning a process without explicitly forking creates a broken shell. Forking creates a shell that works, but the PID namespace appears unchanged to processes that inspect it. Remounting proc and forking provides a working shell in which processes see the new pid namespace.}
+
+\begin{minted}{shell-session}
 $ unshare --pid
 -bash: fork: Cannot allocate memory
 # (new shell in new pid namespace)
@@ -419,8 +420,8 @@ $ unshare --fork --mount-proc --pid
  1 pts/1    S      0:00 -bash
 15 pts/1    R+     0:00 ps ax
 16 pts/1    S+     0:00 tail -n 3
-
-\end{lstlisting}
+\end{minted}
+\end{listing}
 
 \todo{Add vulnerabilities protected from. Discuss lack of vulnerabilities relating to the namespace itself.}
 
@@ -433,8 +434,11 @@ Mount namespaces were by far the most challenging part of this project. When add
 
 Comparing to network namespaces, we see a huge difference in what occurs when a new namespace is created. When creating a new network namespace, the ideal conditions for a void process are created - a network namespace containing only a loopback adapter. That is, the process has no ability to interact with the outside network, and no immediate relation to the parent network namespace. To interact with alternate namespaces, one must explicitly create a connection between the two, or move a physical adapter into the new (empty) namespace. Mount namespaces, rather than creating a new and empty namespace, made the choice to create a copy of the parent namespace, in a copy-on-write fashion. That is, after creating a new mount namespace, the mount hierarchy appears much the same as before. This is shown in Listing \ref{lst:unshare-cat-passwd}, where the file \texttt{/etc/passwd} is shown before and after an unshare, revealing the same content.
 
-\lstset{caption={Reading the same file before and after unsharing the mount namespace demonstrates no observable change in behaviour, showing that more work must be done to create an empty namespace.}}
-\begin{lstlisting}[float,label={lst:unshare-cat-passwd}]
+\begin{listing}
+\label{lst:unshare-cat-passwd}
+\caption{Reading the same file before and after unsharing the mount namespace demonstrates no observable change in behaviour, showing that more work must be done to create an empty namespace.}
+
+\begin{minted}{c}
 int main() {
 int fd;
 
@@ -454,8 +458,8 @@ print_file(fd);
 if (close(fd))
     perror("close");
 }
---
-
+\end{minted}
+\begin{minted}[frame=bottomline]{shell-session}
 root:x:0:0:root:/root:/bin/bash
 daemon:x:1:1:daemon:/usr/sbin:/usr/sbin/nologin
 bin:x:2:2:bin:/bin:/usr/sbin/nologin
@@ -467,19 +471,22 @@ daemon:x:1:1:daemon:/usr/sbin:/usr/sbin/nologin
 bin:x:2:2:bin:/bin:/usr/sbin/nologin
 sys:x:3:3:sys:/dev:/usr/sbin/nologin
 ...
-\end{lstlisting}
+\end{minted}
+\end{listing}
 
 \subsection{Shared Subtrees}
 
 While some other namespaces are copy-on-write, for example UTS namespaces, they do not present the same problem as mount namespaces. Although UTS namespaces are copy-on-write, it is trivial to create the conditions for a void process by setting the hostname of the machine to a constant. This removes any relation to the parent namespace and to the outside machine. Mount namespaces instead maintain a shared pointer with most filesystems, more akin to not creating a new namespace than a copy-on-write namespace.
 
-Shared subtrees \citep{pai_shared_2005} were introduced to provide a consistent view of the unified hierarchy between namespaces. Consider the example in Figure \ref{fig:shared-subtrees}. \texttt{unshare(1)} creates a non-shared tree, which presents the behaviour shown. Although \texttt{/mnt/cdrom} from the parent namespace has been bind mounted in the new namespace, the content of \texttt{/mnt/cdrom} is not the same. This is because the filesystem newly mounted on \texttt{/mnt/cdrom} is unavailable in the separate mount namespace. To combat this, shared subtrees were introduced. That is, as long as \texttt{/mnt/cdrom} resides on a shared subtree, the newly mounted filesystem will be available to a bind of \texttt{/mnt/cdrom} in another namespace. \texttt{systemd} made the choice to mount \texttt{/} as a shared subtree \citep{free_software_foundation_mount_namespaces7_2021}:
+Shared subtrees \citep{pai_shared_2005} were introduced to provide a consistent view of the unified hierarchy between namespaces. Consider the example in Listing \ref{lst:shared-subtrees}. \texttt{unshare(1)} creates a non-shared tree, which presents the behaviour shown. Although \texttt{/mnt/cdrom} from the parent namespace has been bind mounted in the new namespace, the content of \texttt{/mnt/cdrom} is not the same. This is because the filesystem newly mounted on \texttt{/mnt/cdrom} is unavailable in the separate mount namespace. To combat this, shared subtrees were introduced. That is, as long as \texttt{/mnt/cdrom} resides on a shared subtree, the newly mounted filesystem will be available to a bind of \texttt{/mnt/cdrom} in another namespace. \texttt{systemd} made the choice to mount \texttt{/} as a shared subtree \citep{free_software_foundation_mount_namespaces7_2021}:
 
-\begin{figure}
+\begin{listing}
+\label{lst:shared-subtrees}
+\caption{Parallel shell sessions showing highly separated behaviour without shared subtrees between mount namespaces. A folder in the parent namespace that is bound may still show different results in each namespace if the mounts have changed.}
+
 \begin{minipage}{.49\textwidth}
 
-\lstset{caption={}}
-\begin{lstlisting}[frame=tlrb,showlines=true]
+\begin{minted}{shell-session}
 # unshare -m
 # mount_container_root /tmp/a
 # mount --bind \
@@ -489,13 +496,12 @@ Shared subtrees \citep{pai_shared_2005} were introduced to provide a consistent 
 #
 # ls /mnt/cdrom
 
-\end{lstlisting}
+\end{minted}
 
 \end{minipage}\hfill
 \begin{minipage}{.49\textwidth}
 
-\lstset{caption={}}
-\begin{lstlisting}[frame=tlrb]
+\begin{minted}{shell-session}
 #
 #
 #
@@ -505,28 +511,28 @@ Shared subtrees \citep{pai_shared_2005} were introduced to provide a consistent 
 # mount /dev/sr0 /mnt/cdrom
 # ls /mnt/cdrom
 file_1 file_2
-\end{lstlisting}
+\end{minted}
 
 \end{minipage}
-
-\caption{Parallel shell sessions showing highly separated behaviour without shared subtrees between mount namespaces. A folder in the parent namespace that is bound may still show different results in each namespace if the mounts have changed.}
-\label{fig:shared-subtrees}
-\end{figure}
+\end{listing}
 
 \say{Notwithstanding the fact that the default propagation type for new mount is in many cases \texttt{MS\_PRIVATE}, \texttt{MS\_SHARED} is typically more useful.  For this reason, \texttt{systemd(1)} automatically remounts all mounts as \texttt{MS\_SHARED} on system startup. Thus, on most modern systems, the default propagation type is in practice \texttt{MS\_SHARED}.}
 
-This means that when creating a new namespace, mounts and unmounts are propagated by default. More specifically, it means that mounts and unmounts are propagated both from the parent namespace to the child, and from the child namespace to the parent. This can be highly confusing behaviour, as it provides minimal isolation by default. \texttt{unshare(1)} considers this behaviour inconsistent with the goals of unsharing - it immediately calls \texttt{mount("none", "/", NULL, MS\_REC|MS\_PRIVATE, NULL)} after \texttt{unshare(CLONE\_NEWNS)}, detaching the newly unshared tree. The reasoning for enabling \texttt{MS\_SHARED} by default is that containers created should not present the behaviour given in Figure \ref{fig:shared-subtrees}, and this behaviour is unavoidable unless the parent mounts are shared, while it is possible to disable the behaviour where necessary.
+This means that when creating a new namespace, mounts and unmounts are propagated by default. More specifically, it means that mounts and unmounts are propagated both from the parent namespace to the child, and from the child namespace to the parent. This can be highly confusing behaviour, as it provides minimal isolation by default. \texttt{unshare(1)} considers this behaviour inconsistent with the goals of unsharing - it immediately calls \texttt{mount("none", "/", NULL, MS\_REC|MS\_PRIVATE, NULL)} after \texttt{unshare(CLONE\_NEWNS)}, detaching the newly unshared tree. The reasoning for enabling \texttt{MS\_SHARED} by default is that containers created should not present the behaviour given in Listing \ref{lst:shared-subtrees}, and this behaviour is unavoidable unless the parent mounts are shared, while it is possible to disable the behaviour where necessary.
 
 \subsection{Lazy unmounting}
 
-Mount namespaces present further interesting behaviour when unmounting the old root filesystem. Although this may initially seem isolated to void processes, it is also a problem in a container system. Consider again the container created in Figure \ref{fig:shared-subtrees}: the existing root must be unmounted after pivoting, else the container remains fully connected to the outside root.
+Mount namespaces present further interesting behaviour when unmounting the old root filesystem. Although this may initially seem isolated to void processes, it is also a problem in a container system. Consider again the container created in Listing \ref{lst:shared-subtrees}: the existing root must be unmounted after pivoting, else the container remains fully connected to the outside root.
 
 Referring again to network namespaces, sockets continue to exist in their initial namespace, allowing for regular file-descriptor passing semantics \citep{biederman_re_2007}. Extending upon this socket behaviour is Wireguard, which creates adapters that may be freely moved between namespaces while continuing to connect externally from their initial parent \citep[§7.3]{donenfeld_wireguard_2017}.
 
 Something which behaves differently is the memory mapping of a currently running process's binary. Consider the example in Listing \ref{lst:unshare-umount}, which shows a short C program and the result of running it. It is seen that the \texttt{/} mount is busy when attempting the unmount. Given that the process was created in the parent namespace, the behaviour of file descriptors would suggest that the process would maintain a link to the parent namespace for its own memory mapped regions. However, the fact that the otherwise empty namespace has a busy mount shows that this is not the case.
 
-\lstset{caption={Attempting to unmount the private root directory after an unshare results in an error that the resource is busy when no files have been opened on it in the new namespace.}}
-\begin{lstlisting}[float,label={lst:unshare-umount}]
+\begin{listing}
+\label{lst:unshare-umount}
+\caption{Attempting to unmount the private root directory after an unshare results in an error that the resource is busy when no files have been opened on it in the new namespace.}
+
+\begin{minted}{c}
 int main() {
 if (unshare(CLONE_NEWNS))
 	perror("unshare");
@@ -535,18 +541,22 @@ if (mount("none", "/", NULL, MS_REC|MS_PRIVATE, NULL))
 if (umount("/"))
 	perror("umount");
 }
---
+\end{minted}
+\begin{minted}[frame=bottomline]{shell-session}
 umount: Device or resource busy
-\end{lstlisting}
+\end{minted}
 
-A feature called lazy unmounting or \texttt{MNT\_DETACH} exists for situations where a busy mount still needs to be unmounted. Supplying the \texttt{MNT\_DETACH} flag to \texttt{umount2(2)} causes the mount to be immediately detached from the unified hierarchy, while remaining mounted internally until the last user has finished with it. Whilst this initially seems like a good solution, this system call is incredibly dangerous when combined with shared subtrees. This behaviour is shown in Figure \ref{fig:unshare-umount-lazy}, where a lazy (and hence recursive) unmount is combined with a shared subtree to disastrous effect.
+\end{listing}
 
-\begin{figure}
+A feature called lazy unmounting or \texttt{MNT\_DETACH} exists for situations where a busy mount still needs to be unmounted. Supplying the \texttt{MNT\_DETACH} flag to \texttt{umount2(2)} causes the mount to be immediately detached from the unified hierarchy, while remaining mounted internally until the last user has finished with it. Whilst this initially seems like a good solution, this system call is incredibly dangerous when combined with shared subtrees. This behaviour is shown in Listing \ref{lst:unshare-umount-lazy}, where a lazy (and hence recursive) unmount is combined with a shared subtree to disastrous effect.
+
+\begin{listing}
+\label{lst:unshare-umount-lazy}
+\caption{Parallel shell sessions demonstrating the behaviour in the parent namespace when attempting to lazily unmount the root filesystem from an unshared shell with a shared mount. The mount of procfs in the parent is lost even though the unmount was performed in a different namespace.}
 
 \begin{minipage}{.49\textwidth}
 
-\lstset{caption={}}
-\begin{lstlisting}[frame=tlrb]
+\begin{minted}{shell-session}
 #
 #
 # unshare --propagation unchanged -m
@@ -554,14 +564,13 @@ A feature called lazy unmounting or \texttt{MNT\_DETACH} exists for situations w
 #
 #
 #
-\end{lstlisting}
+\end{minted}
 
 \end{minipage}
 \hfill
 \begin{minipage}{.49\textwidth}
 
-\lstset{caption={}}
-\begin{lstlisting}[frame=tlrb,showlines=true]
+\begin{minted}{shell-session}
 # cat /proc/mounts | grep udev
 udev /dev devtmpfs rw,nosuid,relat...
 #
@@ -569,13 +578,10 @@ udev /dev devtmpfs rw,nosuid,relat...
 # cat /proc/mounts | grep udev
 cat: /proc/mounts: No such file or
 directory
-\end{lstlisting}
+\end{minted}
 
 \end{minipage}
-
-\caption{Parallel shell sessions demonstrating the behaviour in the parent namespace when attempting to lazily unmount the root filesystem from an unshared shell with a shared mount. The mount of procfs in the parent is lost even though the unmount was performed in a different namespace.}
-\label{fig:unshare-umount-lazy}
-\end{figure}
+\end{listing}
 
 This behaviour raises questions about why a shared subtree, which exists as an object, would need to be detached recursively - decreasing the reference count to the shared subtree itself would seem sufficient. The inconsistency is best explained by looking at the development timeline for the three features here: mount namespaces, shared subtrees, and recursive lazy unmounts. When lazy unmounting was added, in September 2001, the author said the following \citep{viro_patch_2001}:
 
@@ -607,8 +613,11 @@ To create an effective void process content must be written to the files \texttt
 
 User namespaces again interact with \texttt{procfs}, which brings up an interesting limitation to the capabilities available in user namespaces. On most systems, \texttt{procfs} has a variety of mounts over parts of it. This might be to interact with a hypervisor such as Xen, to support \texttt{binfmt\_misc} for running special applications, or Docker protecting the host from container mishaps. Most interestingly with Docker, these mounts are used to protect the host from the container accessing certain files. The series of mounts on one of my machines are shown in Listing \ref{lst:docker-procfs}. The objects mounted over include \texttt{/proc/kcore}, which presents direct access to all of the kernel's allocatable memory. Linux protects these mounts by enforcing that \texttt{procfs} with mounts below it can only be mounted in a new place if the user has root privilege in the init namespace. Fortunately, one can instead perform a small dance of first binding \texttt{/proc} to the parent namespace before remounting it, which is allowed with mounts below. Further, by running the void process with restricted authority (limited to that of the calling user even as root), the dangerous files in \texttt{/proc} are protected using discretionary access control. This avoids the requirement of adding extra mounts in the void orchestrator.
 
-\lstset{language=C,caption={The mounts at and below /proc in a Ubuntu Docker container demonstrate the many additional mounts on top of procfs.}}
-\begin{lstlisting}[float,label={lst:docker-procfs}]
+\begin{listing}
+\label{lst:docker-procfs}
+\caption{The mounts at and below /proc in a Ubuntu Docker container demonstrate the many additional mounts on top of procfs.}
+
+\begin{minted}{shell-session}
 # docker run --rm ubuntu cat /proc/mounts | grep proc
 proc /proc proc rw,nosuid,nodev,noexec,relatime 0 0
 proc /proc/bus proc ro,nosuid,nodev,noexec,relatime 0 0
@@ -622,7 +631,8 @@ tmpfs /proc/kcore tmpfs rw,nosuid,size=65536k,mode=755 0 0
 tmpfs /proc/keys tmpfs rw,nosuid,size=65536k,mode=755 0 0
 tmpfs /proc/timer_list tmpfs rw,nosuid,size=65536k,mode=755 0 0
 tmpfs /proc/scsi tmpfs ro,relatime 0 0
-\end{lstlisting}
+\end{minted}
+\end{listing}
 
 \todo{Discuss how intense the restrictions on who can do what are. Add vulnerabilities protected from. Discuss lack of vulnerabilities relating to the namespace itself.}
 
@@ -680,8 +690,11 @@ Given that statically giving sockets is infeasible and adding a firewall does no
 
 Filling a user namespace is a slightly odd concept compared to the namespaces already discussed in this section. A user namespace comes with no implicit mapping of users whatsoever (§\ref{sec:voiding-user}). To enable applications to be run with bounded authority, a single mapping is added by the Void Orchestrator of \texttt{root} in the child user namespace to the launching UID in the parent namespace. This means that the user with highest privilege in the container, \texttt{root}, will be limited to the access of the launching user. The behaviour of mapping \texttt{root} to the calling user is shown with the \texttt{unshare(1)} command in Listing \ref{lst:mapped-root-directory}, where a directory owned by the calling user, \texttt{alice}, appears to be owned by \texttt{root} in the new namespace. A file owned by \texttt{root} in the parent namespace appears to be owned by \texttt{nobody} in the child namespace, as no mapping exists for that file's user.
 
-\lstset{language=C,caption={A directory listing before and after entering a user namespace with mapped root demonstrates filesystem objects owned by the mapped (calling) user shown as being owned by root and any other filesystem objects shown as being owned by nobody.}}
-\begin{lstlisting}[float,label={lst:mapped-root-directory}]
+\begin{listing}
+\label{lst:mapped-root-directory}
+\caption{A directory listing before and after entering a user namespace with mapped root demonstrates filesystem objects owned by the mapped (calling) user shown as being owned by root and any other filesystem objects shown as being owned by nobody.}
+
+\begin{minted}{shell-session}
 $ ls -ld repos owned_by_root
 -rw-r--r-- 1 root  root     0 May  7 22:13 owned_by_root
 drwxrwxr-x 7 alice alice 4096 Feb 27 17:52 repos
@@ -691,7 +704,8 @@ $ unshare -U --map-root
 # ls -ld repos owned_by_root
 -rw-r--r-- 1 nobody nogroup    0 May  7 22:13 owned_by_root
 drwxrwxr-x 7 root root 4096 Feb 27 17:52 repos
-\end{lstlisting}
+\end{minted}
+\end{listing}
 
 The way user namespaces are currently used creates a binary system: either a file appears as owned by \texttt{root} if owned by the calling user, or appears as owned by \texttt{nobody} if not (ignoring groups for clarity, though their behaviour is similar). One questions whether more users could be mapped in, but this presents additional difficulties. Firstly, \texttt{setgroups(2)} system call must be denied to achieve correct behaviour in the child namespace. This is because the \texttt{root} user in the child namespace has full capabilities, which include \texttt{CAP\_SETGID}. This means that the user in the namespace can drop their groups, potentially allowing access to materials which the creating user did not (consider a file with permissions \texttt{0707}). This limits the utility of switching user in the child namespace, as the groups must remain the same. Secondly, mapping to users and groups other than oneself requires \texttt{CAP\_SETUID} or \texttt{CAP\_SETGID} in the parent namespace. Avoiding this is well advised to reduce the ambient authority of the shim.
 
@@ -727,23 +741,89 @@ Included in the goal of minimising privilege is providing new APIs to support th
 \chapter{Building Applications}
 \label{chap:building-apps}
 
-\section{No Permissions}
+This section discusses the process of building applications which utilise void processes. Firstly I present the structure of the system used to engage with void processes, the void orchestrator. Then an application which requires no privilege is demonstrated (§\ref{sec:building-no-permissions}), showing how to put together a simple application that takes advantage of void processes to start with no privilege. An existing application which requires more than zero privilege (gzip) is modified (§\ref{sec:building-gzip}), and finally, a basic HTTP file server with TLS support is designed and built from the ground up for void processes (§\ref{sec:building-tls}).
 
-The cornerstone of strong process separation is an application that is completely deprivileged. Listing \ref{lst:deprivileged-application} shows an application which, when run under the shim, drops all privileges except \texttt{stdout}. This is easy to achieve under the shim.
+\section{System Design}
+\label{sec:system-design}
 
-\lstset{language=C,caption={An application that requires only stdout and stderr.}}
-\begin{lstlisting}[float,label={lst:deprivileged-application}]
-#[entrypoint(stdout)]
-fn main() { println!("hello world!"); }
-\end{lstlisting}
+\todo{Write about the system design.}
+
+\subsection{Specification}
+\label{sec:system-design-specification}
+
+\todo{Write about the specification format.}
+
+\section{Fibonacci}
+\label{sec:building-no-permissions}
+
+To begin displaying the power of the void orchestrator system we will develop an application that requires completely minimal privilege. The application and its fixed output are shown, unmodified, in Listing \ref{lst:fibonacci-application}. The application is written in Rust, my language of choice, but there is no such requirement - an equivalent program would look very similar in C. The limited code of this example makes the privilege requirements quite clear. Computing \texttt{fib} requires no privilege at all, operating purely on numbers on the stack. Once the values are computed they are printed using the \texttt{println!} macro, which prints to stdout. Therefore the only privilege this application requires to correctly run is access to stdout.
+
+\begin{listing}
+\label{lst:fibonacci-application}
+\caption{A basic Fibonacci application. The application computes elements of the Fibonacci sequence on static indices and does not process any user input.}
+
+\begin{minted}{rust}
+fn main() {
+    println!("fib(1) = {}", fib(1));
+    println!("fib(7) = {}", fib(7));
+    println!("fib(19) = {}", fib(19));
+}
+
+fn fib(i: u64) -> u64 {
+    let (mut a, mut b) = (0, 1);
+    for _ in 0..i {
+        (a, b) = (b, a + b);
+    }
+    a
+}
+\end{minted}
+\begin{minted}[frame=bottomline]{shell-session}
+fib(1) = 1
+fib(7) = 13
+fib(19) = 4181
+\end{minted}
+\end{listing}
+
+To run this application as a void process we require a specification (§\ref{sec:system-design-specification}) to detail how the processes of the application should be set up. The specification for the Fibonacci application is given in Listing \ref{lst:fibonacci-application-spec}. When specifying an entrypoint for an application every privilege needed must be specified explicitly. In this case, as discussed, the application only requires special access to stdout. This is specified in the environment section of the entrypoint. We also see in the specification a variety of libraries made available, required for the application to successfully dynamically link. This information is decidable from the binary, but implementing that is left for future work (§\ref{sec:future-work-dynamic-linking}).
+
+\begin{listing}
+\label{lst:fibonacci-application-spec}
+\caption{The specification for the void orchestrator to run the application shown in Listing \ref{lst:fibonacci-application}. A single entrypoint is provided with a minimal environment, including only the content to dynamically link the binary and standard output.}
+
+\begin{minted}{json}
+{"entrypoints": { "fib": { "environment": [
+    "Stdout",
+    {
+        "Filesystem": {
+            "host_path": "/lib/x86_64-linux-gnu/libgcc_s.so.1",
+            "environment_path": "/lib/libgcc_s.so.1"
+        }
+    },
+    {
+        "Filesystem": {
+            "host_path": "/lib/x86_64-linux-gnu/libc.so.6",
+            "environment_path": "/lib/libc.so.6"
+        }
+    },
+    {
+        "Filesystem": {
+            "host_path": "/lib64/ld-linux-x86-64.so.2",
+            "environment_path": "/lib64/ld-linux-x86-64.so.2"
+        }
+    }
+]}}}
+\end{minted}
+\end{listing}
 
 \section{gzip}
+\label{sec:building-gzip}
 
 GNU gzip \citep{gailly_gzip_2020} is well structured for privilege separation, though doesn't implement it by default. There is a clear split between the processing logic, selecting the items to do work on, and the compression/decompression routines, each of which are handed a pair of input and output file descriptors. This is shown by Watson et al. in \cite{watson_capsicum_2010}.
 
 As C does not have high-level language features for multi-entrypoint applications, adapting it is slightly more verbose than the other examples seen. However, the resulting code change is still only X lines, if a bit more intricate. This places the risky compression and decompression routines in full sandboxes, while still allowing the simpler argument processing code ambient authority. The argument processing code needs no additional Linux capabilities to manage this permissioning, as the required capabilities are provided by the shim.
 
 \section{TLS Server}
+\label{sec:building-tls}
 
 \begin{figure}
     \centering
@@ -759,15 +839,29 @@ Next, the TCP handler hands off the new TCP connections to the shim. Though the 
 Finally, this pair of decrypted request reader and response writer are handed to a new process which handles the request. In the example case, this new process is handed a directory file descriptor
 to \texttt{/var/www/html}, which is bind-mounted into an empty file system namespace by the shim. This allows the request handler enough access to serve files, while restricting access to anything else.
 
+\section{Summary}
+
+\todo{Building apps: summary.}
+
 
 \chapter{Evaluation}
 \label{chap:evaluation}
 
+\todo{Introduce the evaluation.}
 
-\section{Startup performance}
-\label{sec:evaluation-startup-perf}
+\section{Startup costs}
+\label{sec:evaluation-startup}
 
-\todo{Write section on startup performance.}
+\todo{Plot void creation costs in isolation.}
+
+\section{Application impact}
+\label{sec:evaluation-applications}
+
+\todo{Plot the impact of void processes against varying levels of privilege separation.}
+
+\section{Summary}
+
+\todo{Evaluation: summary.}
 
 
 \chapter{Conclusions}
@@ -780,14 +874,21 @@ Void processes offer a new paradigm for application development which prioritise
 Finally, void processes provide a seamless experience without making kernel level changes, allowing for ease of deployment. Moreover, it runs on the Linux kernel, a production kernel and not a research kernel. Although the current kernel structure limits the performance of the work with namespace creation being the bottleneck, the feasibility of namespaces for process isolation is effectively demonstrated in a system that encourages application writers to develop with privilege separation as a first principle.
 
 \section{Future Work}
+\label{sec:future-work}
 
 \subsection{Kernel API improvements}
+\label{sec:future-work-kernel-api}
 
-The primary future work to increase the utility of void processes is better performance when creating empty namespaces. Section \ref{sec:evaluation-startup-perf} showed that the startup hit when creating the namespaces for a void is very high. This shows a limitation of the APIs, as creating a namespace that has no relation to a parent should involve a small amount of work. Secondly, an API similar to network namespaces adding paired interfaces between namespaces should be added for binding in mount namespaces, allowing mount namespaces to also be created completely empty. This would also benefit containers which by default have no connection to the parent namespace, but need to mount in their own root filesystem.
+The primary future work to increase the utility of void processes is better performance when creating empty namespaces. Section \ref{sec:evaluation-startup} showed that the startup hit when creating the namespaces for a void is very high. This shows a limitation of the APIs, as creating a namespace that has no relation to a parent should involve a small amount of work. Secondly, an API similar to network namespaces adding paired interfaces between namespaces should be added for binding in mount namespaces, allowing mount namespaces to also be created completely empty. This would also benefit containers which by default have no connection to the parent namespace, but need to mount in their own root filesystem.
 
 \subsection{Dynamic linking}
+\label{sec:future-work-dynamic-linking}
 
 Dynamic linking works correctly under the shim, however, it currently requires a high level of manual and static input. If one assumes trust of the binary as well as the specification, it is feasible to add a pre-spawning phase which appends read-only libraries to the specification for each spawned process automatically before creating appropriate voids. This would allow anything which can link correctly on the host system to link correctly in void processes with no additional effort.
+
+\subsection{Building specifications from code}
+
+\todo{Write section on building specifications from code.}
 
 \subsection{Dynamic requests}
 
@@ -800,6 +901,9 @@ A system for dynamically requesting statically specified network sockets was pre
 \bibliography{references}
 
 \appendix
+
+\chapter{TLS Server Example Application}
+
 
 
 \label{lastpage}
