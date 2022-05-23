@@ -428,9 +428,7 @@ $ unshare --fork --mount-proc --pid
 \section{mount namespaces}
 \label{sec:voiding-mount}
 
-Mount namespaces were by far the most challenging part of this project. When adding new features, they continuously raised problems in both API description, expected behaviour, and availability of tools in user-space. A comparison will be given in this section to two other namespaces, network and UTS, to show the significant differences in the design goals of mount namespaces. Many of the implementation problems here comes from a fundamental lack of consistency between mount namespaces and other namespaces in Linux.
-
-One of the defining features of Unix is everything's a file. This perhaps explains why mount namespaces, the namespaces which control the single file hierarchy, would be the most complex. This section presents a case study of the implementation of voiding the most difficult namespace and an analysis of why things were so much more difficult to implement than with others. We first look at the inheritance behaviour, and the link maintained between a freshly created namespace and its parent (§\label{sec:voiding-mount-inherited}). Secondly, I present shared subtrees and the reasoning behind them (§\ref{sec:voiding-mount-shared-subtrees}), before finishing with a discussion of lazy unmounting in Linux and the weakness of the userspace utilities (§\ref{sec:voiding-mount-lazy-unmount}). This culminates in a namespace that is successfully voided, but presents a huge burden to userspace programmers attempting to work with these namespaces in their own projects.
+One of the defining philosophies of Unix is everything's a file. This perhaps explains why mount namespaces, the namespaces which control the single file hierarchy, would be the most complex. This section presents a case study of the implementation of voiding the most difficult namespace and an analysis of why things were so much more difficult to implement than with others. We first look at the inheritance behaviour, and the link maintained between a freshly created namespace and its parent (§\label{sec:voiding-mount-inherited}). Secondly, I present shared subtrees and the reasoning behind them (§\ref{sec:voiding-mount-shared-subtrees}), before finishing with a discussion of lazy unmounting in Linux and the weakness of the userspace utilities (§\ref{sec:voiding-mount-lazy-unmount}). This culminates in a namespace that is successfully voided, but presents a huge burden to userspace programmers attempting to work with these namespaces in their own projects.
 
 \subsection{Filesystem inheritance}
 \label{sec:voiding-mount-inherited}
@@ -789,7 +787,7 @@ fib(19) = 4181
 \end{minted}
 \end{listing}
 
-To run this application as a void process we require a specification (§\ref{sec:system-design-specification}) to detail how the processes of the application should be set up. The specification for the Fibonacci application is given in Listing \ref{lst:fibonacci-application-spec}. When specifying an entrypoint for an application every privilege needed must be specified explicitly. In this case, as discussed, the application only requires special access to stdout. This is specified in the environment section of the entrypoint. We also see in the specification a variety of libraries made available, required for the application to successfully dynamically link. This information is decidable from the binary, but implementing that is left for future work (§\ref{sec:future-work-dynamic-linking}).
+To run this application as a void process we require a specification (§\ref{sec:system-design-specification}) to detail how the processes of the application should be set up. The specification for the Fibonacci application is given in Listing \ref{lst:fibonacci-application-spec}. When specifying an entrypoint for an application every privilege needed must be specified explicitly. In this case, as discussed, the application only requires special access to stdout. This is specified in the environment section of the entrypoint. We also see in the specification a variety of libraries made available, required for the application to successfully dynamically link. This information is decidable from the binary, but implementing that is left for future work (§\ref{sec:future-work-dynamic-linking}). We also see that no arguments are specified, although they are a part of the specification. No specified arguments defaults to no arguments, as the void orchestrator minimises privilege by default. The application void process therefore receives no arguments - including \texttt{arg0} as the binary name.
 
 \begin{listing}
 \label{lst:fibonacci-application-spec}
@@ -820,6 +818,8 @@ To run this application as a void process we require a specification (§\ref{sec
 \end{minted}
 \end{listing}
 
+More of the advanced features of the system will be shown in the future examples, but this is enough to get a basic application up and running. We can see that the Rust application looks exactly like it would without the shim, at least for now. The application is also fully deprivileged. Of course, for an application as small as this example, we can verify by hand that the program has no foul effects. We can imagine a trivial extension that would make this program more dangerous: using a user argument (a privilege the program does not currently have) to take a value on which to execute fib. One way this user input could cause damage is with flawed usage of a logging library. The recent example of Log4j2 with CVE-2021-44228 springs to mind, enabling an attacker with string control to execute arbitrary code from the Internet. A void process with privilege of only arguments and stdout would protect well against this vulnerability, as not only is there no Internet access to pull remote code, but there is nothing to take advantage of in the process even if remote code execution is gained.
+
 \section{gzip}
 \label{sec:building-gzip}
 
@@ -830,19 +830,129 @@ As C does not have high-level language features for multi-entrypoint application
 \section{TLS Server}
 \label{sec:building-tls}
 
+Rather than presenting the complete applications as shown in the previous two sections, the TLS server presents instead a case study on designing applications from the ground up to run as void processes. The thought process behind data flow design and taking advantage of the more advanced void orchestrator features is given. This results in the process separation presented in Figure \ref{fig:tls-server-processes}. First we must accept TCP requests from the end user (§\ref{sec:building-tls-tcp-listener}). Then, to be able to check that all is working so far, we respond to these requests (§\ref{sec:building-tls-http-handler}). Finally, we add an encryption layer using TLS (\ref{sec:building-tls-tls-handler}). This results in a functional TLS file server with strong privilege separation, with each stage having no more privilege than it needs.
+
 \begin{figure}
+    \label{fig:tls-server-processes}
+    \caption{The final process design for a TLS server running under the void orchestrator. The figure is split into processes running void orchestrator code and processes running user code. Arrows represent a passing of privilege from one process to another.}
+
     \centering
     \includegraphics[width=\columnwidth]{figures/tls-server-splitting.png}
-    \caption{Process separation in a TLS server.}
-    \label{fig:tls-server-splitting}
 \end{figure}
 
-Finally, a rudimentary TLS server is created to show the rich privilege separation abilities of multi-entrypoint applications. An example structure is shown in Figure \ref{fig:tls-server-splitting}. Rather than being provided with a view of the network, the initial TCP handling process is given an already bound socket listener by the shim. This allows the TCP handler to live in an extremely restricted zero-access network namespace, while still performing the tasks of receiving new TCP connections.
+\subsection{TCP listener}
+\label{sec:building-tls-tcp-listener}
 
-Next, the TCP handler hands off the new TCP connections to the shim. Though the figure shows this as a direct connection between the TCP handler and the TLS handler, they are passed through the shim, from which the shim spawns a fresh TLS handler for each connection. The TLS handler is handed file descriptors to the certificate and key files that it requires, and hands back a decrypted request reader and an empty response writer file descriptor to the shim.
+The special privilege required by a process which accepts TCP connections is a listening TCP socket. As discussed in Section \ref{sec:filling-net}, TCP listening sockets are handed already bound to void processes. This enables a capability model for network access, otherwise restricting inbound and outbound networking entirely. The specification for this listener is given in Listing \ref{lst:tls-tcp-listener-spec}, where the TCP listener is requested as an argument already bound. No other permissions are required to accept connections from a TCP listener. Although the code at each stage is omitted for brevity, the resulting program has to parse the argument back into an integer and then a \texttt{TcpStream} before looping to receive incoming connections. Of course, we can't do much useful with them without more privilege. Thus we move on to developing the HTTP handler.
 
-Finally, this pair of decrypted request reader and response writer are handed to a new process which handles the request. In the example case, this new process is handed a directory file descriptor
-to \texttt{/var/www/html}, which is bind-mounted into an empty file system namespace by the shim. This allows the request handler enough access to serve files, while restricting access to anything else.
+\begin{listing}
+\label{lst:tls-tcp-listener-spec}
+\caption{The void orchestrator specification for the TCP listener endpoint of the TLS application. The privilege to use a TCP listener is requested as an argument. Dynamic linking binds are omitted for brevity.}
+
+\begin{minted}{json}
+{"entrypoints": { "tcp_listener": {
+	"args": [
+		{ "TcpListener": { "addr": "0.0.0.0:8443" } }
+	]
+}}}
+\end{minted}
+\end{listing}
+
+\subsection{HTTP handler}
+\label{sec:building-tls-http-handler}
+
+When attempting to add the HTTP handler, we immediately require more privilege. As this is intended to be a file server, we need some files. Although it would be easy to add files to the existing entrypoint, the principle of least privilege is highly encouraged when developing a void process. One should always ask whether an entrypoint needs a new privilege that they are about to add to it, or whether they would be better served with a new entrypoint.
+
+In this case, we are going to add a new entrypoint for two reasons: multiprocessing and privilege separation. This allows the TCP listener entrypoint to continue in a tight loop, accepting requests very quickly and fanning them out to new processes. These new processes have only their required privileges: the files they wish to serve, and the \texttt{TcpStream} to serve them down. We take advantage here of another feature of the void orchestrator, file socket based triggers. These allow a statically defined socket to be setup which the void orchestrator will listen on and create new void processes on demand. Further, this ensures isolation between requests too, meaning that a single failed request that causes a process to fail will not affect any others, and a compromised process can't leak information about any other requests either.
+
+The HTTP handler entrypoint is added to the specification in Listing \ref{lst:tls-http-handler-spec}. As well as adding a single extra argument to trigger the HTTP handler, we must also add an entrypoint argument to differentiate between the two entrypoints. Much like the usage of \texttt{arg0} for symlinked binaries, we utilise \texttt{arg0} to find which intended use of the binary is being called.
+
+\begin{listing}
+\label{lst:tls-http-handler-spec}
+\caption{The void orchestrator specification for the TCP listener endpoint and HTTP handler endpoint of the TLS application. This extends on Listing \ref{lst:tls-tcp-listener-spec} by adding the HTTP handler endpoint. A new File Socket is used to link the two entrypoints together. Dynamic linking binds are omitted for brevity.}
+
+\begin{minted}{json}
+{"entrypoints": {
+    "tcp_listener": {
+        "args": [
+            "Entrypoint",
+            { "FileSocket": { "Tx": "http" } },
+            { "TcpListener": { "addr": "0.0.0.0:8443" } }
+        ]
+    },
+    "http_handler": {
+        "trigger": { "FileSocket": "http" },
+        "args": [ "Entrypoint", "Trigger" ],
+        "environment": [{ "Filesystem": {
+            "host_path": "/var/www/html",
+            "environment_path": "/var/www/html"
+        }}]
+    }
+}}
+\end{minted}
+\end{listing}
+
+\begin{listing}
+\label{lst:tls-main-function}
+\caption{The main function for the TLS server. This matches on the entrypoint arg0 to determine which entrypoint the application has been run for.}
+
+\begin{minted}{rust}
+fn main() {
+    match std::env::args().next() {
+        Some(s) => match s.as_str() {
+            "connection_listener" => connection_listener_entrypoint(),
+            "http_handler" => http_handler_entrypoint(),
+            _ => unimplemented!(),
+        },
+        None => unimplemented!(),
+    }
+}
+\end{minted}
+\end{listing}
+
+\subsection{TLS handler}
+\label{sec:building-tls-tls-handler}
+
+The final stage is to add the TLS handling into the mix. Once again we have the choice of whether to add this to an existing entrypoint or create a new one. This decision is very similar to HTTP handling, but perhaps more important. Rather than adding the \texttt{www} directory that we intend to serve publicly anyway, we are entrusting a process with the private keys of the TLS certificate, allowing anyone who takes over the process to impersonate us. This is again an excellent time for more privilege separation, so the TLS handling will be added as an additional entrypoint.
+
+The resulting specification is given in Listing \ref{lst:tls-spec}. The TLS handler is added in a very similar manner to the previous HTTP handler. It is triggered by a file socket, but this time receives another file socket to trigger the next stage. It receives file descriptor capabilities to each the certificate and private key files, along with the TCP stream. This process receives nothing but highly restricted capabilities, ensuring that there is very little attack surface for compromise.
+
+\begin{listing}
+\label{lst:tls-spec}
+\caption{The void orchestrator specification for the final TLS application. This extends on Listing \ref{lst:tls-tcp-listener-spec} by adding the HTTP handler endpoint. A new File Socket is used to link the two entrypoints together. Dynamic linking binds are omitted for brevity.}
+
+\begin{minted}{json}
+{"entrypoints": {
+    "connection_listener": {
+        "args": [
+            "Entrypoint",
+            { "FileSocket": { "Tx": "tls" } },
+            { "TcpListener": { "addr": "0.0.0.0:8443" } }
+        ]
+    },
+    "tls_handler": {
+        "trigger": { "FileSocket": "tls" },
+        "args": [
+            "Entrypoint",
+            { "FileSocket": { "Tx": "http" } },
+            { "File": "/etc/ssl/certs/example.com.pem" },
+            { "File": "/etc/ssl/private/example.com.key" },
+            "Trigger"
+        ]
+    },
+    "http_handler": {
+        "trigger": { "FileSocket": "http" },
+        "args": [ "Entrypoint", "Trigger" ],
+        "environment": [{ "Filesystem": {
+            "host_path": "/var/www/html",
+            "environment_path": "/var/www/html"
+        }}]
+    }
+}}
+\end{minted}
+\end{listing}
+
+We now have a full specification for a TLS server. In this section I have focused entirely on building up the specification and not the code behind it. There are two reasons for this: the code has a lot of boilerplate argument processing, and a variety of code implementations are available. The boilerplate argument processing could be addressed with future work using features like proc macros in Rust which dynamically generate code based on the code that is already there (§\ref{sec:future-work-macros}). As for varying implementations, I chose to use the static library \texttt{rustls} to implement my TLS server. Perhaps someone else would prefer OpenSSL or LibreSSL, which is of course fine. For the HTTP part I use a random library I found on the Internet to parse HTTP headers before responding only to GET requests. Of course this approach is hugely error prone, but the separation of the HTTP handler from the sensitive TLS material and other parts of the filesystem increases my confidence. The implementation therefore matters very little in this analysis, but is made available at \url{https://github.com/JakeHillion/void-orchestrator/tree/main/examples/tls} and along with this dissertation.
 
 \section{Summary}
 
@@ -892,6 +1002,7 @@ The primary future work to increase the utility of void processes is better perf
 Dynamic linking works correctly under the shim, however, it currently requires a high level of manual and static input. If one assumes trust of the binary as well as the specification, it is feasible to add a pre-spawning phase which appends read-only libraries to the specification for each spawned process automatically before creating appropriate voids. This would allow anything which can link correctly on the host system to link correctly in void processes with no additional effort.
 
 \subsection{Building specifications from code}
+\label{sec:future-work-macros}
 
 \todo{Write section on building specifications from code.}
 
