@@ -604,7 +604,7 @@ The API is particularly unfriendly to creating a void process. The creation of m
 \section{user namespaces}
 \label{sec:voiding-user}
 
-User namespaces provide isolation of security between processes. They isolate uids, gids, the root directory, keys and capabilities. This provides massive utility for rootless containers [CN], and also this shim. Rather than the shim being a \texttt{setuid} or \texttt{CAP\_SYS\_ADMIN} binary, it can instead operate with ambient authority. This vastly simplifies the logic for opening file descriptors to pass the child processes, as the shim itself is already operating with correctly limited authority.
+User namespaces provide isolation of security between processes. They isolate uids, gids, the root directory, keys and capabilities. Rather than the shim being a \texttt{setuid} or \texttt{CAP\_SYS\_ADMIN} binary, it can instead operate with ambient authority. This vastly simplifies the logic for opening file descriptors to pass the child processes, as the shim itself is already operating with correctly limited authority.
 
 Similarly to many other namespaces, user namespaces suffer from needing to limit their isolation. For a user namespace to be useful, some relation needs to exist between processes in the user namespace and objects outside. That is, if a process in a user namespace shares a filesystem with a process in the parent namespace, there should be a way to share credentials. To achieve this with user namespaces a mapping between users in the namespace and users outside exists. The most common use-case is to map root in the user namespace to the creating user outside, meaning that a process with full privileges in the namespace will be constrained to the creating user's ambient authority.
 
