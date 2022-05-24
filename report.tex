@@ -738,7 +738,7 @@ Included in the goal of minimising privilege is providing new APIs to support th
 \chapter{Building Applications}
 \label{chap:building-apps}
 
-This section discusses the process of creating applications which utilise void processes. Firstly I present the structure of the system used to engage with void processes, the void orchestrator. Then an application which requires no privilege is demonstrated (§\ref{sec:building-no-permissions}), showing how to put together a simple application that takes advantage of void processes to start with no privilege. Finally, a basic HTTP file server with TLS support is designed and built from the ground up for void processes (§\ref{sec:building-tls}).
+This section discusses the process of creating applications which utilise void processes. Firstly I present the structure of the system used to engage with void processes, the void orchestrator. Then an application which requires no privilege is demonstrated (§\ref{sec:building-fib}), showing how to put together a simple application that takes advantage of void processes to start with no privilege. Finally, a basic HTTP file server with TLS support is designed and built from the ground up for void processes (§\ref{sec:building-tls}).
 
 \section{System Design}
 \label{sec:system-design}
@@ -748,7 +748,7 @@ The central development of void processes is the void orchestrator, a shim that 
 There are two types of entrypoints: those spawned at startup, and those spawned when triggered by an event. This event, as shown in the TLS server example (§\ref{sec:building-tls}) is most commonly sending one or more file descriptors from a different void process. This allows effective high performance communication.
 
 \section{Fibonacci}
-\label{sec:building-no-permissions}
+\label{sec:building-fib}
 
 To begin displaying the power of the void orchestrator system we will develop an application that requires completely minimal privilege. The application and its fixed output are shown, unmodified, in Listing \ref{lst:fibonacci-application}. The application is written in Rust, my language of choice, but there is no such requirement - an equivalent program would look very similar in C. The limited code of this example makes the privilege requirements quite clear. Computing \texttt{fib} requires no privilege at all, operating purely on numbers on the stack. Once the values are computed they are printed using the \texttt{println!} macro, which prints to stdout. Therefore the only privilege this application requires to correctly run is access to stdout.
 
@@ -955,7 +955,7 @@ While avoiding looking at the internals, I've demonstrated how void processes ca
 \chapter{Evaluation}
 \label{chap:evaluation}
 
-\todo{Introduce the evaluation.}
+Privilege separation often presents a trade-off between performance and security. This evaluation attempts to quantify that overhead, first discussing the cost of creating void processes (§\ref{sec:evaluation-startup}), both theoretically and on the Fibonacci test application (\ref{sec:building-fib}). Secondly, we take a look at the runtime overhead of privilege separation (§\ref{sec:evaluation-runtime}), specifically on the TLS server example (\ref{sec:building-tls}).
 
 \section{Startup costs}
 \label{sec:evaluation-startup}
@@ -963,7 +963,7 @@ While avoiding looking at the internals, I've demonstrated how void processes ca
 \todo{Plot void creation costs in isolation.}
 
 \section{Runtime impact}
-\label{sec:evaluation-applications}
+\label{sec:evaluation-runtime}
 
 \todo{Plot the impact of void processes against varying levels of privilege separation.}
 
