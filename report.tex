@@ -983,7 +983,7 @@ Every void process created requires a set of 7 unique namespaces, which is a lot
     \centering
     \includegraphics[width=0.8\textwidth]{graphs/fib_launch_times.png}
     \caption{A box plot comparing the performance of the Fibonacci example (§\ref{sec:building-fib} under the shim and called directly. The median time to run under the shim is approximately 800\% the time without. The inter-quartile range and range of results is also much larger.}
-    \label{fig:namespace-times}
+    \label{fig:fib-launch-times}
 \end{figure}
 
 \section{Runtime impact}
@@ -993,7 +993,7 @@ Every void process created requires a set of 7 unique namespaces, which is a lot
     \centering
     \includegraphics[width=0.8\textwidth]{graphs/tls-server-requests-per-second.png}
     \caption{\texttt{a2bench} requests per second results over 10 seconds with 100 simultaneous requests on varying response sizes. As the response size increases, the gap between the \texttt{apache2} TLS web server and the void process TLS web server decreases.}
-    \label{fig:namespace-times}
+    \label{fig:tls-performance}
 \end{figure}
 
 \section{Summary}
