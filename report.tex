@@ -145,7 +145,9 @@ Words outside text (captions, etc.): 128
 
 \chapter*{Abstract}
 
-\todo{Write abstract.}
+The important of privilege separation - separating the parts of an application with the most risk of attack from the parts with the most reward for an attacker - for protection of resources in a modern operating system cannot be understated. As Linux has grown into the behemoth of an operating system that it is today, many privileges and attack vectors have been enabled, large amounts of which are given passively to new processes. New methods for protecting applications and processes have come along at nearly the same rate. This paper presents void processes: a framework to restrict Linux processes, removing access to ambient resources by default and providing APIs to systematically unlock abilities that applications require. Void processes solve the problem of needing to know what your privilege is in order to reduce it, as an application developer can begin from a clean slate.
+
+This project built a system, the void orchestrator, to enable application developers to build upwards from a point of zero-privilege, rather than removing privilege that they don't need. This report gives the background and technical details of how to achieve this on modern Linux. I present a summary of the privilege separation techniques currently employed in production and details on how to create an empty set of namespaces to remove all privilege in Linux, a technique named entering the void. The shortcomings of Linux when creating empty namespaces are discussed, before setting forth the methods for re-adding features in each of these domains. Finally, two example applications are built and their performance evaluated to show the utility of the system. This report aims to demonstrate the value of a paradigm shift from reducing an arbitrary amount of privilege to adding only what is necessary.
 
 \ifsubmission\else
 % not included in submission for blind marking:
@@ -172,7 +174,7 @@ support of \ldots [optional]
 
 Newly spawned processes on modern Linux are exposed to a myriad of attack vectors and privilege, whether the hundreds of system calls available, \texttt{procfs}, exposure of filesystem objects, or the ability to connect to arbitrary hosts on the Internet. This paper presents void processes: a framework to restrict Linux processes, removing access to ambient resources by default and providing APIs to systematically unlock abilities that applications require. Explicit privilege designation with void processes could have saved many applications from the threat of CVE-2021-44228 with Log4j2 by ensuring that the processes which do dangerous user data processing are sufficiently deprivileged to prevent remote code execution (§\ref{lst:fibonacci-application-spec}). Moreover, adding explicit privilege with each change encourages consideration of privilege separation whenever new privilege is added, rather than when flaws are exposed.
 
-This project built a system, the void orchestrator, to enable application developers to build upwards from a point of zero-privilege, rather than removing privilege that they don't need. This report gives the background and technical details of how to achieve this on modern Linux. I present a summary of the privilege separation techniques currently employed in production (§\ref{chap:priv-sep}) and details on how to create an empty set of namespaces to remove all privilege in Linux (§\ref{chap:entering-the-void}), a technique named entering the void. The shortcomings of the kernel are discussed (§\ref{sec:voiding-mount},§\ref{sec:voiding-user},§\ref{sec:voiding-cgroup}), before discussing how to re-add features to the kernel in each of these domains (§\ref{chap:filling-the-void}). Finally, three example applications are built (§\ref{chap:building-apps}) and evaluated (§\ref{chap:evaluation}) to show the utility of the system. This report aims to demonstrate the value of a paradigm shift from reducing an arbitrary amount of privilege to adding only what is necessary.
+This project built a system, the void orchestrator, to enable application developers to build upwards from a point of zero-privilege, rather than removing privilege that they don't need. This report gives the background and technical details of how to achieve this on modern Linux. I present a summary of the privilege separation techniques currently employed in production (§\ref{chap:priv-sep}) and details on how to create an empty set of namespaces to remove all privilege in Linux (§\ref{chap:entering-the-void}), a technique named entering the void. The shortcomings of Linux when creating empty namespaces are discussed (§\ref{sec:voiding-mount},§\ref{sec:voiding-user},§\ref{sec:voiding-cgroup}), before setting forth the methods for re-adding features in each of these domains (§\ref{chap:filling-the-void}). Finally, two example applications are built (§\ref{chap:building-apps}) and evaluated (§\ref{chap:evaluation}) to show the utility of the system. This report aims to demonstrate the value of a paradigm shift from reducing an arbitrary amount of privilege to adding only what is necessary.
 
 Much prior work exists in the space of privilege separation, including: virtual machines (§\ref{sec:priv-sep-another-machine}); containers (§\ref{sec:priv-sep-perspective}); object capabilities (§\ref{sec:priv-sep-ownership}); unikernels; and applications which run directly on a Linux host, potentially employing privilege separation of their own (§\ref{sec:priv-sep-process}, §\ref{sec:priv-sep-time}). These alternative environments are plotted in Figure \ref{fig:attack-vs-changes}, in which the difference between applications written for the environment and the attack surface remaining are compared. Void processes contribute a strong compromise between providing a rich Linux-like interface for applications, reducing necessary code changes, and significantly reducing the attack surface (demonstrated in §\ref{chap:entering-the-void}).
 
@@ -202,8 +204,8 @@ In 2003, privilege separation was added to the \texttt{syslogd} daemon of OpenBS
 
 \begin{figure}
     \centering
-    \includegraphics[width=0.4\textwidth]{figures/openbsd-syslogd-privsep.png}
-    \caption{Data flow with the two processes in OpenBSD's privilege separated syslogd design.}
+    \includestandalone[width=0.4\textwidth]{diagrams/openbsd-syslogd-privsep}
+    \caption{Separation of privileged access from untrusted user data in OpenBSD's privilege separated syslogd design compared to the previous. The process which handles untrusted data is separated from the privileged process and uses RPC to communicate.}
     \label{fig:openbsd-syslogd-privsep}
 \end{figure}
 
@@ -827,19 +829,11 @@ As C does not have high-level language features for multi-entrypoint application
 Rather than presenting the complete applications as shown in the previous two sections, the TLS server presents instead a case study on designing applications from the ground up to run as void processes. The thought process behind data flow design and taking advantage of the more advanced void orchestrator features is given. This results in the process separation presented in Figure \ref{fig:tls-server-processes}. First we must accept TCP requests from the end user (§\ref{sec:building-tls-tcp-listener}). Then, to be able to check that all is working so far, we respond to these requests (§\ref{sec:building-tls-http-handler}). Finally, we add an encryption layer using TLS (\ref{sec:building-tls-tls-handler}). This results in a functional TLS file server with strong privilege separation, with each stage having no more privilege than it needs.
 
 \begin{figure}
-    \label{fig:tls-server-processes}
+    \centering
+    \includestandalone[width=0.8\textwidth]{diagrams/tls-server-processes}
+
     \caption{The final process design for a TLS server running under the void orchestrator. The figure is split into processes running void orchestrator code and processes running user code. Arrows represent a passing of privilege from one process to another.}
-
-    \centering
-    \includegraphics[width=\columnwidth]{figures/tls-server-splitting.png}
-\end{figure}
-
-\begin{figure}
-    \centering
-    \includestandalone[width=0.9\textwidth]{diagrams/tls-server-processes}
-
-    \caption{The final process design for a TLS server running under the void orchestrator. The figure is split into processes running void orchestrator code and processes running user code. Arrows represent a passing of privilege from one process to another (tikzified).}
-    \label{fig:tls-server-processes-tikz}
+    \label{fig:tls-server-processes}
 \end{figure}
 
 \subsection{TCP listener}
@@ -969,12 +963,38 @@ Privilege separation often presents a trade-off between performance and security
 \section{Startup costs}
 \label{sec:evaluation-startup}
 
-\todo{Plot void creation costs in isolation.}
+Every void process created requires a set of 7 unique namespaces, which is a lot of work compared to a standard \texttt{fork(2)}/\texttt{vfork(2)} call. Here I evaluated the overhead of such operations, first on the raw clone calls, and secondly on launching the basic Fibonacci application (§\ref{sec:building-fib}).
+
+\begin{figure}
+    \centering
+    \includegraphics[width=0.7\textwidth]{graphs/namespace_times.png}
+    \caption{Performance of making the \texttt{clone(2)} system call with varying namespace creation flags. The test is run in a tight compiled C loop with high precision timings taken before and after each new process is cloned and waited for. \texttt{clone(2)} presents very noisy results on a system with background activity.}
+    \label{fig:namespace-times}
+\end{figure}
+
+\begin{figure}
+    \centering
+    \includegraphics[width=0.8\textwidth]{graphs/namespace_stacked_times.png}
+    \caption{Performance of making the \texttt{clone(2)} system call with increasing amounts of namespace creation flags. The effects of Figure \ref{fig:namespace-times} are amplified when creating multiple namespaces in a single call this frequently. There is a clear divide between the time taken for user, pid, uts, and cgroup namespaces and ipc, ns and net namespaces.}
+    \label{fig:namespace-stacked-times}
+\end{figure}
+
+\begin{figure}
+    \centering
+    \includegraphics[width=0.8\textwidth]{graphs/fib_launch_times.png}
+    \caption{A box plot comparing the performance of the Fibonacci example (§\ref{sec:building-fib} under the shim and called directly. The median time to run under the shim is approximately 800\% the time without. The inter-quartile range and range of results is also much larger.}
+    \label{fig:namespace-times}
+\end{figure}
 
 \section{Runtime impact}
 \label{sec:evaluation-runtime}
 
-\todo{Plot the impact of void processes against varying levels of privilege separation.}
+\begin{figure}
+    \centering
+    \includegraphics[width=0.8\textwidth]{graphs/tls-server-requests-per-second.png}
+    \caption{\texttt{a2bench} requests per second results over 10 seconds with 100 simultaneous requests on varying response sizes. As the response size increases, the gap between the \texttt{apache2} TLS web server and the void process TLS web server decreases.}
+    \label{fig:namespace-times}
+\end{figure}
 
 \section{Summary}
 
