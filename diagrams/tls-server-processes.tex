@@ -77,9 +77,9 @@
       \node[inner, red, right = 5.5mm of tls-handler-spawner] (http-handler-spawner) {HTTP Handler Spawner};
     \end{scope}
     
-    \node[inner, green, below = 2*\layer of connection-listener-spawner] (connection-listener) {Connection Listener};
-    \node[inner, green, below = 2*\layer of tls-handler-spawner] (tls-handler) {TLS Handler};
-    \node[inner, green, below = 2*\layer of http-handler-spawner] (http-handler) {HTTP Handler};
+    \node[inner, green, below = 3*\layer of connection-listener-spawner] (connection-listener) {Connection Listener};
+    \node[inner, green, below = 3*\layer of tls-handler-spawner] (tls-handler) {TLS Handler};
+    \node[inner, green, below = 3*\layer of http-handler-spawner] (http-handler) {HTTP Handler};
 
 
     \coordinate (spawners-nw) at ($ (spawners.north west) + (-0.3, 0.3 + \titlepad) $);
@@ -95,6 +95,9 @@
     \coordinate (mid-lline) at ($ (tls-handler-spawner) + (-1.15,0) $);
     \coordinate (right-lline) at ($ (http-handler-spawner) + (-1.15,0) $);
     
+    \coordinate (left-rline) at ($ (connection-listener-spawner) + (1.15,0) $);
+    \coordinate (mid-rline) at ($ (tls-handler-spawner) + (1.15,0) $);
+
     % Lines for the left set
     \draw[->] (left-lline |- 0, 0 |- void-orchestrator.south) -- (left-lline |- 0, 0 |- connection-listener.north);
     
@@ -105,6 +108,10 @@
     % Lines for the right set
     \draw[->] (right-lline |- 0, 0 |- void-orchestrator.south) -- (right-lline |- 0, 0 |- http-handler-spawner.north);
     \draw[->] (right-lline |- 0, 0 |- http-handler-spawner.south) -- (right-lline |- 0, 0 |- http-handler.north);
+    
+    % Special lines
+    \draw[->] (connection-listener.east) -- ($(connection-listener.east)!0.5!(tls-handler.west)$) -- ($(connection-listener-spawner.east)!0.5!(tls-handler-spawner.west)$) -- (tls-handler-spawner.west);
+    \draw[->] (tls-handler.east) -- ($(tls-handler.east)!0.5!(http-handler.west)$) -- ($(tls-handler-spawner.east)!0.5!(http-handler-spawner.west)$) -- (http-handler-spawner.west);
     
   \end{scope}
 
