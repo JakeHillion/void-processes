@@ -17,12 +17,13 @@
 \usepackage{refcount} % for counting pages
 \usepackage{upquote}  % for correct quotation marks in verbatim text
 
-\usepackage{courier}                % better listings font
-\usepackage{dirtytalk}              % quotations
-\usepackage[square,numbers]{natbib} % citations
-\usepackage{minted}                 % code listings
-\usepackage{multirow}               % multi-row cells in tables
-\usepackage{makecell}               % multi-line cells in tables
+\usepackage{courier}                  % better listings font
+\usepackage{dirtytalk}                % quotations
+\usepackage[square,numbers]{natbib}   % citations
+\usepackage{minted}                   % code listings
+\usepackage{multirow}                 % multi-row cells in tables
+\usepackage{makecell}                 % multi-line cells in tables
+\usepackage[subpreambles]{standalone}  % tex files as diagrams
 
 % TODO: remove me
 \usepackage{todonotes}
@@ -831,6 +832,14 @@ Rather than presenting the complete applications as shown in the previous two se
 
     \centering
     \includegraphics[width=\columnwidth]{figures/tls-server-splitting.png}
+\end{figure}
+
+\begin{figure}
+    \centering
+    \includestandalone[width=0.9\textwidth]{diagrams/tls-server-processes}
+
+    \caption{The final process design for a TLS server running under the void orchestrator. The figure is split into processes running void orchestrator code and processes running user code. Arrows represent a passing of privilege from one process to another (tikzified).}
+    \label{fig:tls-server-processes-tikz}
 \end{figure}
 
 \subsection{TCP listener}
