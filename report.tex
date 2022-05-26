@@ -25,10 +25,6 @@
 \usepackage{makecell}                 % multi-line cells in tables
 \usepackage[subpreambles]{standalone} % tex files as diagrams
 
-% TODO: remove me
-\usepackage{todonotes}
-\setuptodonotes{inline}
-
 \setminted{fontsize=\footnotesize,frame=lines,stripnl=false}
 
 \newif\ifsubmission % Boolean flag for distinguishing submitted/final version
@@ -44,7 +40,7 @@
 % Select which version this is:
 % For the (anonymous) submission (without your name or acknowledgements)
 % uncomment the following line (or let the makefile do this for you)
-%\submissiontrue
+\submissiontrue
 % For the final version (with your name) leave the above commented.
 
 \begin{document}
@@ -870,8 +866,6 @@ In Section \ref{sec:void-creation-costs} testing showed that creating all of the
 
 Figure \ref{fig:fib-launch-times} shows the difference in spawning an application directly and spawning it with the shim (the Fibonacci application in this section can be launched either way). A C application with a tight for loop is compiled, which calls \texttt{vfork(2)} followed by \texttt{wait(2)}, again using high precision \texttt{CLOCK\_MONOTONIC} timings. The \texttt{vfork(2)} call calls \texttt{execv(2)} immediately, in the direct case with the Fibonacci binary itself, and in the shim case with the shim with the Fibonacci specification and binary as arguments.
 
-The results demonstrate 
-
 \begin{figure}
     \centering
     \includegraphics[width=0.8\textwidth]{graphs/fib_startup.png}
@@ -879,6 +873,8 @@ The results demonstrate
     \caption{A box plot comparing the performance of the Fibonacci example (§\ref{sec:building-fib} under the shim and called directly. The median time to run under the shim is approximately 800\% the time without. The inter-quartile range and range of results is also much larger.}
     \label{fig:fib-launch-times}
 \end{figure}
+
+The results demonstrate both significantly higher median latency and significantly higher variance in the results. The machine is the same as that mentioned in Section \ref{sec:void-creation-costs}. Although my virtual machine was not particularly busy at the time of testing, it appeared that the underlying host was, affecting times due to virtual machine context switching within the hypervisor. The underlying trend of a significant overhead remained throughout testing.
 
 \section{TLS Server}
 \label{sec:building-tls}
@@ -1005,12 +1001,14 @@ The resulting specification is given in Listing \ref{lst:tls-spec}. The TLS hand
 \label{lst:tls-spec}
 \end{listing}
 
-We now have a full specification for a TLS server. In this section I have focused entirely on building up the specification and not the code behind it. There are two reasons for this: the code has a lot of boilerplate argument processing, and a variety of code implementations are available. The boilerplate argument processing could be addressed with future work using features like proc macros in Rust which dynamically generate code based on the code that is already there (§\ref{sec:future-work-macros}). As for varying implementations, I chose to use the static library \texttt{rustls} to implement my TLS server. Perhaps someone else would prefer OpenSSL or LibreSSL, which is of course fine. For the HTTP part I use a random library I found on the Internet to parse HTTP headers before responding only to GET requests. Of course this approach is hugely error prone, but the separation of the HTTP handler from the sensitive TLS material and other parts of the filesystem increases my confidence. The implementation therefore matters very little in this analysis, but is made available at \url{https://github.com/JakeHillion/void-orchestrator/tree/main/examples/tls} and along with this dissertation.
+We now have a full specification for a TLS server. In this section I have focused entirely on building up the specification and not the code behind it. There are two reasons for this: the code has a lot of boilerplate argument processing, and a variety of code implementations are available. The boilerplate argument processing could be addressed with future work using features like proc macros in Rust which dynamically generate code based on the code that is already there (§\ref{sec:future-work-macros}). As for varying implementations, I chose to use the static library \texttt{rustls} to implement my TLS server. Perhaps someone else would prefer OpenSSL or LibreSSL, which is of course fine. For the HTTP part I use a random library I found on the Internet to parse HTTP headers before responding only to GET requests. Of course this approach is hugely error prone, but the separation of the HTTP handler from the sensitive TLS material and other parts of the filesystem increases my confidence. The implementation therefore matters very little in this analysis, but is made available at \ifsubmission \url{file:///SUBMITTED_SRC/void-orchestrator/examples/tls/} \else \url{https://github.com/JakeHillion/void-orchestrator/tree/main/examples/tls/} \fi.
 
 \subsection{Performance}
 \label{sec:tls-performance}
 
-\todo{Write about tls performance.}
+The performance of the TLS server provides a much more nuanced view than the performance of the trivial Fibonacci example (§\ref{sec:fib-performance}). I evaluated my void process solution against \texttt{apache2}, a highly tuned HTTP server. Both used the same self-signed TLS certificate and were benchmarked with the tool \texttt{ab}, the Apache HTTP server benchmarking tool. The machine setup remains the same as in Section \ref{sec:void-creation-costs}.
+
+Figure \ref{fig:tls-performance} shows the absolute number of requests per second achieved over the ten second testing period, where \texttt{ab} created 100 concurrent connections and was allowed unlimited total requests. The graph plots the median result and the interquartile range. Figure \ref{fig:tls-relative-performance} shows the same data, but this time divided by the median result of the apache server's benchmark, allowing easier viewing of the relative performance of the two solutions at scale.
 
 \begin{figure}
     \centering
@@ -1027,6 +1025,8 @@ We now have a full specification for a TLS server. In this section I have focuse
     \caption{\texttt{a2bench} requests per second results over 10 seconds with 100 simultaneous requests on varying response sizes. As the response size increases, the gap between the \texttt{apache2} TLS web server and the void process TLS web server decreases.}
     \label{fig:tls-relative-performance}
 \end{figure}
+
+The trend of the data is that the void process solution handles large request sizes better, while apache handles small request sizes much better. This relates to the high cost of process creation (§\ref{sec:void-creation-costs},§\ref{sec:fib-performance}) associated with void processes, given that two processes need be created for each request (a \texttt{tls\_handler} and a \texttt{http\_handler}). However, combined with large response processes (meaning long lived processes) and high concurrency, the void process server eventually outperforms apache. This highlights the effectiveness of using ordinary file descriptors, even across namespace boundaries, as speed is well maintained. 
 
 \section{Summary}
 
