@@ -40,7 +40,7 @@
 % Select which version this is:
 % For the (anonymous) submission (without your name or acknowledgements)
 % uncomment the following line (or let the makefile do this for you)
-\submissiontrue
+%\submissiontrue
 % For the final version (with your name) leave the above commented.
 
 \begin{document}
@@ -119,16 +119,16 @@ Main chapters (excluding front-matter, references and appendix):
 \contentpages~pages
 (pp~\pageref{firstcontentpage}--\pageref{lastcontentpage})
 
-Main chapters word count: 12485
+Main chapters word count: 12799
 
 Methodology used to generate that word count:
 
 \begin{quote}
 \begin{verbatim}
 £ texcount report.tex | grep Words
-Words in text: 11565
-Words in headers: 110
-Words outside text (captions, etc.): 810
+Words in text: 11844
+Words in headers: 108
+Words outside text (captions, etc.): 847
 \end{verbatim}
 
 \texttt{texcount} macros are used to ensure counting begins on the first content page and ends on the last content page.
@@ -245,7 +245,7 @@ While the methods looked at until now of privilege separation by process and tim
 
 Although object capabilities still require some additional work to ensure that only intentional capabilities remain accessible when entering capability mode, they come a lot closer to easy deprivileging than the previous solutions. However, their adoption remains limited at this point. They are unavailable in the latest Linux kernel release (5.17.7) at the time of writing, and there are no plans for their adoption.
 
-\section{Privilege separation by using another machine}
+\section{Privilege separation by machine}
 \label{sec:priv-sep-another-machine}
 
 One of the older methods of privilege separation is placing parts of an application on entirely different machines. If developing a web application, one might place the PHP backend on one machine and the database server on another. This means that even if a bad actor achieves remote access to the exposed PHP backend, they can only access the database server over its exposed API on the network, rather than having control of the machine itself. This allows features such as the database's access control to remain working, limiting the potential damange of an attacker controlling the PHP server.
@@ -321,7 +321,7 @@ This work focuses on the application of namespaces to more conventional privileg
     \end{tabular}
     \end{center}
 
-    \caption{Table showing the date and kernel version each namespace was added. The date provides the date of the first commit where they appeared, and the kernel version the kernel release they appear in the changelog of. Namespaces are ordered by kernel version then alphabetically. Some examples are provided of CVEs of each namespace, and CVEs that each namespace protects against.}
+    \caption{The date and kernel version each namespace was added. The date provides the date of the first commit where they appeared, and the kernel version the kernel release they appear in the changelog of. Namespaces are ordered by kernel version then alphabetically. Some examples are provided of CVEs of each namespace, and CVEs that each namespace protects against.}
     \label{tab:namespaces}
 \end{table}
 
@@ -620,7 +620,7 @@ When setting up a container environment, one calls \texttt{pivot\_root(2)} to re
 
 If, instead, one wishes to continue running the existing binary, this is possible with lazy unmounting. However, the kernel only exposes a recursive lazy unmount. With shared subtrees, this results in destroying the parent tree. While this is avoidable by removing the shared propagation from the subtree before unmounting, the choice to have \texttt{MNT\_DETACH} aggressively cross shared subtrees can be highly confusing, and perhaps undesired behaviour in a world with shared subtrees by default.
 
-The API is particularly unfriendly to creating a void process. The creation of mount namespaces is copy-on-write, and many filesystems are mounted shared. This means that they propagate changes back through namespace boundaries. As the mount namespace does not allow for creating an entirely empty root, extra care must be taken in separating processes. The method taken in this system is mounting a new \texttt{tmpfs} file system in a new namespace, which doesn't propagate to the parent, and using the \texttt{pivot\_root(8)} command to make this the new root. By pivoting to the \texttt{tmpfs}, the old root exists as the only reference in the otherwise empty \texttt{tmpfs}. Finally, after ensuring the old root is set to \texttt{MNT\_PRIVATE} to avoid propagation, the old root can be lazily detached. This allows the binary from the parent namespace, the shim in this case, to continue running correctly. Any new processes only have access to the materials in the empty \texttt{tmpfs}. This new \texttt{tmpfs} never appears in the parent namespace, separating the void process effectively from the parent namespace.
+The API is particularly unfriendly to creating a void process. The initial state of a mount namespace is inherited, and many filesystems are mounted shared. This means that they propagate changes back through namespace boundaries. As the mount namespace does not allow for creating an entirely empty root, extra care must be taken in separating processes. Void processes mount an empty \texttt{tmpfs} file system in a new namespace, which doesn't propagate to the parent, and use the \texttt{pivot\_root(8)} command to make this the new root. By pivoting to the \texttt{tmpfs}, the old root exists as the only reference in the otherwise empty \texttt{tmpfs}. Finally, after ensuring the old root is set to \texttt{MNT\_PRIVATE} to avoid propagation, the old root can be lazily detached. This allows the binary from the parent namespace to continue running correctly. Any new processes only have access to the materials in the empty \texttt{tmpfs}. This new \texttt{tmpfs} never appears in the parent namespace, separating the void process effectively from the parent namespace.
 
 \section{user namespaces}
 \label{sec:voiding-user}
