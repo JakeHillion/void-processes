@@ -1,0 +1,92 @@
+\documentclass[12pt,crop,tikz]{standalone}
+
+\providecommand{\rootdir}{..}
+\usetikzlibrary{backgrounds}
+\usetikzlibrary{positioning}
+\usetikzlibrary{calc}
+\usetikzlibrary{decorations.pathreplacing}
+
+\tikzstyle{arrow} = [thick,->,>=stealth]
+
+% The Tableau20 colours
+\definecolor{TabLightOrange}{RGB}{255,187,120}
+\definecolor{TabOrange}{RGB}{255,127,14}
+\definecolor{TabLightBlue}{RGB}{174,199,232}
+\definecolor{TabBlue}{RGB}{31,119,180}
+\definecolor{TabGreen}{RGB}{44,160,44}
+\definecolor{TabLightGreen}{RGB}{152,223,138}
+\definecolor{TabSalmon}{RGB}{255,152,150}
+\definecolor{TabRed}{RGB}{214,39,40}
+\definecolor{TabPurple}{RGB}{148,103,189}
+\definecolor{TabLightPurple}{RGB}{197,176,213}
+\definecolor{TabLightPink}{RGB}{247,182,210}
+\definecolor{TabPink}{RGB}{227,119,194}
+\definecolor{TabLightBrown}{RGB}{196,156,148}
+\definecolor{TabBrown}{RGB}{140,86,75}
+\definecolor{TabGray}{RGB}{127,127,127}
+\definecolor{TabOlive}{RGB}{188,189,34}
+\definecolor{TabLightOlive}{RGB}{219,219,141}
+\definecolor{TabLightGray}{RGB}{199,199,199}
+\definecolor{TabLightCyan}{RGB}{158,218,229}
+\definecolor{TabCyan}{RGB}{23,190,207}
+
+\begin{document}
+
+\def\titlepad{0.1}
+\def\boxspacing{40mm}
+
+\def\layer{0.3}
+
+\def\inner{0.3}
+\def\innerspace{0.2}
+
+\def\layerwidth{5cm}
+\def\halflayerwidth{2.35cm}
+\def\layerheight{0.8cm}
+\def\innerwidth{4.4cm}
+\def\halfinnerwidth{2.1cm}
+
+\begin{tikzpicture}[ every node/.style={font=\small}
+  , layer/.style=    {rectangle, draw=black!50, thick, minimum width=\layerwidth    , minimum height=\layerheight}
+  , halflayer/.style={rectangle, draw=black!50, thick, minimum width=\halflayerwidth, minimum height=\layerheight}
+  , inner/.style=    {rectangle, draw=black!50, thick, minimum width=\innerwidth    , minimum height=\layerheight}
+  , halfinner/.style={rectangle, draw=black!50, thick, minimum width=\halfinnerwidth, minimum height=\layerheight}
+  , red/.style={fill=TabPurple!40}
+  , orange/.style={fill=TabBlue!40}
+  , yellow/.style={fill=TabCyan!40}
+  , green/.style={fill=TabLightGreen!60}
+  , node distance = 0cm
+	, arrow={->,>=stealth}
+  ]
+  
+    \begin{scope}[local bounding box=graph-body]
+        \node[layer,orange] (void-processes) {Void Processes (§\ref{sec:system-design})};
+        \node[circle,fill,inner sep=1.5pt, yellow, below = \innerspace of void-processes] (void-processes-dot) {};
+
+        \node[circle,fill,inner sep=1.5pt, yellow, above left=3*\layerheight and 3*\layerheight of void-processes-dot] (unikernels-dot) {};
+        \node[layer, above = \innerspace of unikernels-dot] (unikernels) {Unikernels};
+        
+        \node[circle,fill,inner sep=1.5pt, yellow, below right=3*\layerheight and 2*\layerheight of void-processes-dot] (containers-dot) {};
+        \node[layer, above = \innerspace of containers-dot] (containers) {Containers (§\ref{sec:priv-sep-perspective})};
+        
+        \node[circle,fill,inner sep=1.5pt, yellow, below left=5*\layerheight and 1*\layerheight of void-processes-dot] (virtual-machines-dot) {};
+        \node[layer, above = \innerspace of virtual-machines-dot] (virtual-machines) {Virtual Machines (§\ref{sec:priv-sep-another-machine})};
+        
+        \node[circle,fill,inner sep=1.5pt, yellow, below right=5*\layerheight and 11*\layerheight of void-processes-dot] (ambient-authority-dot) {};
+        \node[layer, above left=\innerspace and \innerspace of ambient-authority-dot] (ambient-authority) {Ambient Authority};
+    \end{scope}
+    
+    \coordinate (graph-body-nw) at ($ (graph-body.north west) + (-0.3, 0.3 + \titlepad) $);
+    \coordinate (graph-body-ne) at ($ (graph-body.north east) + ( 0.3, 0.3 + \titlepad) $);
+    \coordinate (graph-body-sw) at ($ (graph-body.south west) + (-0.3,-0.3) $);
+    \coordinate (graph-body-se) at ($ (graph-body.south east) + ( 0.3,-0.3) $);
+    
+    % Axes
+    \draw[->] ($ (graph-body-nw) + (0.15, 0) $) -- (graph-body-ne);
+    \draw[->] (graph-body-nw) -- (graph-body-sw);
+    
+    % Axis labels
+    \node[rectangle,fill=white] at ($ (graph-body-nw)!0.5!(graph-body-ne) $) (x-axis-label) {Attack surface};
+    \node[rectangle,fill=white,rotate around={90:($ (graph-body-nw)!0.5!(graph-body-sw) $)}] at ($ (graph-body-nw)!0.5!(graph-body-sw) $) (y-axis-label) {Linux compatibility};
+\end{tikzpicture}
+\end{document}

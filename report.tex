@@ -37,10 +37,9 @@
 \title{Void Processes: Minimising privilege by default}
 \author{Jake Hillion}
 \date{June 2022}
-\newcommand{\candidatenumber}{2373A}
+\newcommand{\candidatenumber}{2492A}
 \newcommand{\college}{Queens' College}
 \newcommand{\course}{Computer Science Tripos, Part III}
-%\newcommand{\course}{Master of Philosophy in Advanced Computer Science}
 
 % Select which version this is:
 % For the (anonymous) submission (without your name or acknowledgements)
@@ -143,21 +142,43 @@ Words outside text (captions, etc.): 128
 
 \onehalfspacing
 
+\ifsubmission\else
+% not included in submission for blind marking:
+
+\newpage
+{\Huge \bf Declaration}
+
+\vspace{24pt}
+
+I, Jake Hillion of Queens' College, being a candidate for Computer
+Science Tripos, Part III, hereby declare that this report and the
+work described in it are my own work, unaided except as may be
+specified below, and that the report does not contain material that
+has already been used to any substantial extent for a comparable
+purpose.
+
+\vspace{60pt}
+\textbf{Signed}:  Jake Hillion
+
+\vspace{12pt}
+\textbf{Date}: \today
+
+
+\vfill
+
+This dissertation is copyright \copyright 2022 Jake Hillion. 
+\\
+All trademarks used in this dissertation are hereby acknowledged.
+
+\fi
+\cleardoublepage % preserve page numbers after missing declaration
+
 \chapter*{Abstract}
 
 The important of privilege separation - separating the parts of an application with the most risk of attack from the parts with the most reward for an attacker - for protection of resources in a modern operating system cannot be understated. As Linux has grown into the behemoth of an operating system that it is today, many privileges and attack vectors have been enabled, large amounts of which are given passively to new processes. New methods for protecting applications and processes have come along at nearly the same rate. This paper presents void processes: a framework to restrict Linux processes, removing access to ambient resources by default and providing APIs to systematically unlock abilities that applications require. Void processes solve the problem of needing to know what your privilege is in order to reduce it, as an application developer can begin from a clean slate.
 
 This project built a system, the void orchestrator, to enable application developers to build upwards from a point of zero-privilege, rather than removing privilege that they don't need. This report gives the background and technical details of how to achieve this on modern Linux. I present a summary of the privilege separation techniques currently employed in production and details on how to create an empty set of namespaces to remove all privilege in Linux, a technique named entering the void. The shortcomings of Linux when creating empty namespaces are discussed, before setting forth the methods for re-adding features in each of these domains. Finally, two example applications are built and their performance evaluated to show the utility of the system. This report aims to demonstrate the value of a paradigm shift from reducing an arbitrary amount of privilege to adding only what is necessary.
 
-\ifsubmission\else
-% not included in submission for blind marking:
-
-\chapter*{Acknowledgements}
-
-This project would not have been possible without the wonderful
-support of \ldots [optional]
-
-\fi
 \cleardoublepage % preserve page numbers after missing acknowledgements
 
 \setcounter{tocdepth}{1} % only show up to sections in the table of contents
@@ -185,7 +206,7 @@ Much prior work exists in the space of privilege separation, including: virtual 
 
 \begin{figure}[h]
     \centering
-    \includegraphics[width=0.6\textwidth]{figures/least-most-linux.png}
+    \includestandalone[width=0.8\textwidth]{diagrams/attack-surface-vs-linux-compatibility}
     
     \caption{Privilege separated environments plotted to compare the number of application changes required against the remaining attack surface of the environment.}
     \label{fig:attack-vs-changes}
@@ -660,6 +681,32 @@ Although good isolation of the host system from the void process is provided, th
 
 There are two problems when working with cgroups namespaces in user-space: needing sufficient discretionary access control, and leaving the control of individual application processes in a global namespace. An alternative kernel design would increase the utility by solving both of these problems. A process in a new cgroups namespace could instead create a detached hierarchy with the process as a leaf of the root and full permissions in the user-namespace that created it. The main cgroups hierarchy could then still see a single application to control, while the application itself would have full access over sharing its resources.  This presents the ability for mechanisms of managing cgroups to clash between the namespaces, as the outer namespace would now have control over what resources are delegated to the application rather than each process in the application. Such a system would also provide improved behaviour over the current, which requires a delegation flag to be handed to the manager informing it to go no further down the tree. This would be significantly better enforced with namespaces. That is, the main namespace could be handled by \texttt{systemd}, while the \texttt{/docker} namespace could be internally managed by docker. This would allow \texttt{systemd} to move the \texttt{/docker} namespace around as required, with no awareness of the choices made internally.
 
+\section{Performance}
+
+As shown in this chapter, creating a void requires creating 7 distinct namespaces to hide access to everything that is possible. There are two options to create these namespaces: \texttt{clone(2)} or \texttt{unshare(2)}. As the void orchestrator uses clone we evaluate the performance of this tool.
+
+These tests were run on my development machine, using Linux 5.15.0-33-generic on Ubuntu 22.04 LTS. It is a Xen based virtual machine, hence absolute results are less important than trends. The test process calls \texttt{clone(2)} with the requisite flags, then waits for the child process to exit. The child process exits immediately after returning from clone. The time is taken from before the \texttt{clone(2)} call and after the \texttt{wait} call returns using the high precision \texttt{CLOCK\_MONOTONIC}. This code is compiled into a tight C for loop, which executes 1250 times. The first 250 entries are discarded. Prior to running the variety of clone tests, 12500 clone calls are made in an attempt to warm up the system.
+
+Figure \ref{fig:namespace-times} compares the time of \texttt{clone(2)} calls with a single namespace creation flag, and a \texttt{clone(2)} call that creates no namespaces. Ignoring the (repeatable) anomaly that a clone call which creates a namespace is cheaper than one which doesn't, there is a clear difference shown in the creation time of network namespaces compared to user. This aligns with different namespaces having to protect different areas of the system. Further, we see that creating a network namespace is approximately four times slower than not creating any.
+
+\begin{figure}
+    \centering
+    \includegraphics[width=0.7\textwidth]{graphs/namespace_times.png}
+
+    \caption{Performance of making the \texttt{clone(2)} system call with varying namespace creation flags. The test is run in a tight compiled C loop with high precision timings taken before and after each new process is cloned and waited for. \texttt{clone(2)} presents very noisy results on a system with background activity.}
+    \label{fig:namespace-times}
+\end{figure}
+
+As void processes must create multiple namespaces to effectively isolate processes the creating of multiple namespaces is of more interest than a single one at a time. The creation of multiple namespaces is shown in Figure \ref{fig:namespace-stacked-times}. Here the divide between the three slowest namespaces in Figure \ref{fig:namespace-times} is e
+
+\begin{figure}
+    \centering
+    \includegraphics[width=0.8\textwidth]{graphs/namespace_stacked_times.png}
+
+    \caption{Performance of making the \texttt{clone(2)} system call with increasing amounts of namespace creation flags. The effects of Figure \ref{fig:namespace-times} are amplified when creating multiple namespaces in a single call this frequently. There is a clear divide between the time taken for user, pid, uts, and cgroup namespaces and ipc, ns and net namespaces.}
+    \label{fig:namespace-stacked-times}
+\end{figure}
+
 \section{Summary}
 
 In this chapter I presented the 8 namespaces available in Linux 5.15. What each namespace protects against, how to completely empty each created namespace, and the constraints in doing so were presented. For cgroup and mount namespaces, alternative designs that increase the usability of the namespaces were discussed.
@@ -970,21 +1017,7 @@ Privilege separation often presents a trade-off between performance and security
 
 Every void process created requires a set of 7 unique namespaces, which is a lot of work compared to a standard \texttt{fork(2)}/\texttt{vfork(2)} call. Here I evaluated the overhead of such operations, first on the raw clone calls, and secondly on launching the basic Fibonacci application (§\ref{sec:building-fib}).
 
-\begin{figure}
-    \centering
-    \includegraphics[width=0.7\textwidth]{graphs/namespace_times.png}
 
-    \caption{Performance of making the \texttt{clone(2)} system call with varying namespace creation flags. The test is run in a tight compiled C loop with high precision timings taken before and after each new process is cloned and waited for. \texttt{clone(2)} presents very noisy results on a system with background activity.}
-    \label{fig:namespace-times}
-\end{figure}
-
-\begin{figure}
-    \centering
-    \includegraphics[width=0.8\textwidth]{graphs/namespace_stacked_times.png}
-
-    \caption{Performance of making the \texttt{clone(2)} system call with increasing amounts of namespace creation flags. The effects of Figure \ref{fig:namespace-times} are amplified when creating multiple namespaces in a single call this frequently. There is a clear divide between the time taken for user, pid, uts, and cgroup namespaces and ipc, ns and net namespaces.}
-    \label{fig:namespace-stacked-times}
-\end{figure}
 
 \begin{figure}
     \centering
