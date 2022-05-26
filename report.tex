@@ -1008,7 +1008,7 @@ We now have a full specification for a TLS server. In this section I have focuse
 
 The performance of the TLS server provides a much more nuanced view than the performance of the trivial Fibonacci example (§\ref{sec:fib-performance}). I evaluated my void process solution against \texttt{apache2}, a highly tuned HTTP server. Both used the same self-signed TLS certificate and were benchmarked with the tool \texttt{ab}, the Apache HTTP server benchmarking tool. The machine setup remains the same as in Section \ref{sec:void-creation-costs}.
 
-Figure \ref{fig:tls-performance} shows the absolute number of requests per second achieved over the ten second testing period, where \texttt{ab} created 100 concurrent connections and was allowed unlimited total requests. The graph plots the median result and the interquartile range. Figure \ref{fig:tls-relative-performance} shows the same data, but this time divided by the median result of the apache server's benchmark, allowing easier viewing of the relative performance of the two solutions at scale.
+Figure \ref{fig:tls-performance} shows the absolute number of requests per second achieved over the ten second testing period, where \texttt{ab} created 100 concurrent connections and was allowed unlimited total requests. The graph plots the median result and the interquartile range. Figure \ref{fig:tls-relative-performance} shows the same data, but this time divided by the median result of the apache server's benchmark, allowing easier study of the relative performance of the two solutions at scale.
 
 \begin{figure}
     \centering
