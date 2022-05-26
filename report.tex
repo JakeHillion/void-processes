@@ -23,7 +23,8 @@
 \usepackage[chapter]{minted}          % code listings
 \usepackage{multirow}                 % multi-row cells in tables
 \usepackage{makecell}                 % multi-line cells in tables
-\usepackage[subpreambles]{standalone}  % tex files as diagrams
+\usepackage[subpreambles]{standalone} % tex files as diagrams
+\usepackage{svg}                      % svgs in includegraphics
 
 % TODO: remove me
 \usepackage{todonotes}
@@ -187,20 +188,16 @@ This project built a system, the void orchestrator, to enable application develo
 %\listoftables
 %\lstlistoflistings
 
-
+%TC:endignore            % start word count here
 \chapter{Introduction}
 \label{firstcontentpage} % start page count here
-%TC:endignore            % start word count here
 \label{chap:introduction}
 
 Newly spawned processes on modern Linux are exposed to a myriad of attack vectors and unnecessary privilege: whether the hundreds of system calls available, \texttt{procfs}, exposure of filesystem objects, or the ability to connect to arbitrary hosts on the Internet.
 
 This thesis argues that we need a framework to restrict Linux processes -- removing access to ambient resources by default -- and provide APIs to minimally unlock application access to the outside world. This approach would have saved many existing applications from remote exploits by ensuring that processes which handle sensitive user data are sufficiently deprivileged to prevent remote code execution.  The resulting OS interfaces are far easier to reason about for a novice programmer, and encourage upfront consideration of security rather than waiting for flaws to be exposed.
 
-
-Newly spawned processes on modern Linux are exposed to a myriad of attack vectors and privilege, whether the hundreds of system calls available, \texttt{procfs}, exposure of filesystem objects, or the ability to connect to arbitrary hosts on the Internet. This paper presents void processes: a framework to restrict Linux processes, removing access to ambient resources by default and providing APIs to systematically unlock abilities that applications require. Explicit privilege designation with void processes could have saved many applications from the threat of CVE-2021-44228 with Log4j2 by ensuring that the processes which do dangerous user data processing are sufficiently deprivileged to prevent remote code execution (§\ref{lst:fibonacci-application-spec}). Moreover, adding explicit privilege with each change encourages consideration of privilege separation whenever new privilege is added, rather than when flaws are exposed.
-
-This project built a system, the void orchestrator, to enable application developers to build upwards from a point of zero-privilege, rather than removing privilege that they don't need. This report gives the background and technical details of how to achieve this on modern Linux. I present a summary of the privilege separation techniques currently employed in production (§\ref{chap:priv-sep}) and details on how to create an empty set of namespaces to remove all privilege in Linux (§\ref{chap:entering-the-void}), a technique named entering the void. The shortcomings of Linux when creating empty namespaces are discussed (§\ref{sec:voiding-mount},§\ref{sec:voiding-user},§\ref{sec:voiding-cgroup}), before setting forth the methods for re-adding features in each of these domains (§\ref{chap:filling-the-void}). Finally, two example applications are built (§\ref{chap:building-apps}) and evaluated (§\ref{chap:evaluation}) to show the utility of the system. This report aims to demonstrate the value of a paradigm shift from reducing an arbitrary amount of privilege to adding only what is necessary.
+This project built a system, the void orchestrator, to enable application developers to build upwards from a point of zero-privilege, rather than removing privilege that they don't need. This report gives the background and technical details of how to achieve this on modern Linux. I present a summary of the privilege separation techniques currently employed in production (§\ref{chap:priv-sep}) and details on how to create an empty set of namespaces to remove all privilege in Linux (§\ref{chap:entering-the-void}), a technique named entering the void. The shortcomings of Linux when creating empty namespaces are discussed (§\ref{sec:voiding-mount},§\ref{sec:voiding-user},§\ref{sec:voiding-cgroup}), before setting forth the methods for re-adding features in each of these domains (§\ref{chap:filling-the-void}). Finally, two example applications are built and evaluated (§\ref{chap:building-apps}) to show the utility of the system. This report aims to demonstrate the value of a paradigm shift from reducing an arbitrary amount of privilege to adding only what is necessary.
 
 Much prior work exists in the space of privilege separation, including: virtual machines (§\ref{sec:priv-sep-another-machine}); containers (§\ref{sec:priv-sep-perspective}); object capabilities (§\ref{sec:priv-sep-ownership}); unikernels; and applications which run directly on a Linux host, potentially employing privilege separation of their own (§\ref{sec:priv-sep-process}, §\ref{sec:priv-sep-time}). These alternative environments are plotted in Figure \ref{fig:attack-vs-changes}, in which the difference between applications written for the environment and the attack surface remaining are compared. Void processes contribute a strong compromise between providing a rich Linux-like interface for applications, reducing necessary code changes, and significantly reducing the attack surface (demonstrated in §\ref{chap:entering-the-void}).
 
@@ -681,13 +678,14 @@ Although good isolation of the host system from the void process is provided, th
 
 There are two problems when working with cgroups namespaces in user-space: needing sufficient discretionary access control, and leaving the control of individual application processes in a global namespace. An alternative kernel design would increase the utility by solving both of these problems. A process in a new cgroups namespace could instead create a detached hierarchy with the process as a leaf of the root and full permissions in the user-namespace that created it. The main cgroups hierarchy could then still see a single application to control, while the application itself would have full access over sharing its resources.  This presents the ability for mechanisms of managing cgroups to clash between the namespaces, as the outer namespace would now have control over what resources are delegated to the application rather than each process in the application. Such a system would also provide improved behaviour over the current, which requires a delegation flag to be handed to the manager informing it to go no further down the tree. This would be significantly better enforced with namespaces. That is, the main namespace could be handled by \texttt{systemd}, while the \texttt{/docker} namespace could be internally managed by docker. This would allow \texttt{systemd} to move the \texttt{/docker} namespace around as required, with no awareness of the choices made internally.
 
-\section{Performance}
+\section{Creation cost}
+\label{sec:void-creation-costs}
 
-As shown in this chapter, creating a void requires creating 7 distinct namespaces to hide access to everything that is possible. There are two options to create these namespaces: \texttt{clone(2)} or \texttt{unshare(2)}. As the void orchestrator uses clone we evaluate the performance of this tool.
+As shown in this chapter, creating a void requires creating 7 distinct namespaces to hide access to everything that is possible. There are two options to create these namespaces: \texttt{clone(2)} or \texttt{unshare(2)}. As the void orchestrator uses \texttt{clone(2)} we evaluate the performance of this tool.
 
-These tests were run on my development machine, using Linux 5.15.0-33-generic on Ubuntu 22.04 LTS. It is a Xen based virtual machine, hence absolute results are less important than trends. The test process calls \texttt{clone(2)} with the requisite flags, then waits for the child process to exit. The child process exits immediately after returning from clone. The time is taken from before the \texttt{clone(2)} call and after the \texttt{wait} call returns using the high precision \texttt{CLOCK\_MONOTONIC}. This code is compiled into a tight C for loop, which executes 1250 times. The first 250 entries are discarded. Prior to running the variety of clone tests, 12500 clone calls are made in an attempt to warm up the system.
+These tests were run on my development machine, using Linux 5.15.0-33-generic on Ubuntu 22.04 LTS. It is a Xen based virtual machine, hence absolute results are less important than trends. The test process calls \texttt{clone(2)} with the requisite flags, then waits for the child process to exit. The child process exits immediately after returning from clone. The time is taken from before the \texttt{clone(2)} call and after the \texttt{wait} call returns using the high precision \texttt{CLOCK\_MONOTONIC}. This code is compiled into a tight C for loop, which executes 1250 times. The first 250 entries of each run are discarded. Prior to running the variety of clone tests, 12500 clone calls are made in an attempt to warm up the system.
 
-Figure \ref{fig:namespace-times} compares the time of \texttt{clone(2)} calls with a single namespace creation flag, and a \texttt{clone(2)} call that creates no namespaces. Ignoring the (repeatable) anomaly that a clone call which creates a namespace is cheaper than one which doesn't, there is a clear difference shown in the creation time of network namespaces compared to user. This aligns with different namespaces having to protect different areas of the system. Further, we see that creating a network namespace is approximately four times slower than not creating any.
+Figure \ref{fig:namespace-times} compares the time of \texttt{clone(2)} calls with a single namespace creation flag, and a \texttt{clone(2)} call that creates no namespaces. Ignoring the anomaly that a clone call which creates a namespace is cheaper than one which doesn't, there is a clear difference shown in the creation time of network namespaces compared to user. This aligns with different namespaces having to protect different areas of the system. Further, we see that creating a network namespace is approximately four times slower than not creating any.
 
 \begin{figure}
     \centering
@@ -697,7 +695,7 @@ Figure \ref{fig:namespace-times} compares the time of \texttt{clone(2)} calls wi
     \label{fig:namespace-times}
 \end{figure}
 
-As void processes must create multiple namespaces to effectively isolate processes the creating of multiple namespaces is of more interest than a single one at a time. The creation of multiple namespaces is shown in Figure \ref{fig:namespace-stacked-times}. Here the divide between the three slowest namespaces in Figure \ref{fig:namespace-times} is e
+As void processes must create multiple namespaces to effectively isolate processes the creating of multiple namespaces is of more interest than a single one at a time. The creation of multiple namespaces is shown in Figure \ref{fig:namespace-stacked-times}. Here the divide between the three slowest namespaces in Figure \ref{fig:namespace-times} is exaggerated massively, showing a significant divide between the quick four namespaces and the slow final three. 
 
 \begin{figure}
     \centering
@@ -866,14 +864,22 @@ To run this application as a void process we require a specification (§\ref{sec
 
 More of the advanced features of the system will be shown in the future examples, but this is enough to get a basic application up and running. We can see that the Rust application looks exactly like it would without the shim, at least for now. The application is also fully deprivileged. Of course, for an application as small as this example, we can verify by hand that the program has no foul effects. We can imagine a trivial extension that would make this program more dangerous: using a user argument (a privilege the program does not currently have) to take a value on which to execute fib. One way this user input could cause damage is with flawed usage of a logging library. The recent example of Log4j2 with CVE-2021-44228 springs to mind, enabling an attacker with string control to execute arbitrary code from the Internet. A void process with privilege of only arguments and stdout would protect well against this vulnerability, as not only is there no Internet access to pull remote code, but there is nothing to take advantage of in the process even if remote code execution is gained.
 
-\iffalse % cut out \section{gzip}
-\section{gzip}
-\label{sec:building-gzip}
+\subsection{Performance}
+\label{sec:fib-performance}
 
-GNU gzip \citep{gailly_gzip_2020} is well structured for privilege separation, though doesn't implement it by default. There is a clear split between the processing logic, selecting the items to do work on, and the compression/decompression routines, each of which are handed a pair of input and output file descriptors. This is shown by Watson et al. in \cite{watson_capsicum_2010}.
+In Section \ref{sec:void-creation-costs} testing showed that creating all of the namespaces needed for a void can have extremely high overhead compared to creating a simple new process. Now that a basic application exists to evaluate this on, the latency of the final shim executing an application can be tested.
 
-As C does not have high-level language features for multi-entrypoint applications, adapting it is slightly more verbose than the other examples seen. However, the resulting code change is still only X lines, if a bit more intricate. This places the risky compression and decompression routines in full sandboxes, while still allowing the simpler argument processing code ambient authority. The argument processing code needs no additional Linux capabilities to manage this permissioning, as the required capabilities are provided by the shim.
-\fi      % cut out \section{gzip}
+Figure \ref{fig:fib-launch-times} shows the difference in spawning an application directly and spawning it with the shim (the Fibonacci application in this section can be launched either way). A C application with a tight for loop is compiled, which calls \texttt{vfork(2)} followed by \texttt{wait(2)}, again using high precision \texttt{CLOCK\_MONOTONIC} timings. The \texttt{vfork(2)} call calls \texttt{execv(2)} immediately, in the direct case with the Fibonacci binary itself, and in the shim case with the shim with the Fibonacci specification and binary as arguments.
+
+The results demonstrate 
+
+\begin{figure}
+    \centering
+    \includegraphics[width=0.8\textwidth]{graphs/fib_launch_times.png}
+
+    \caption{A box plot comparing the performance of the Fibonacci example (§\ref{sec:building-fib} under the shim and called directly. The median time to run under the shim is approximately 800\% the time without. The inter-quartile range and range of results is also much larger.}
+    \label{fig:fib-launch-times}
+\end{figure}
 
 \section{TLS Server}
 \label{sec:building-tls}
@@ -1002,33 +1008,10 @@ The resulting specification is given in Listing \ref{lst:tls-spec}. The TLS hand
 
 We now have a full specification for a TLS server. In this section I have focused entirely on building up the specification and not the code behind it. There are two reasons for this: the code has a lot of boilerplate argument processing, and a variety of code implementations are available. The boilerplate argument processing could be addressed with future work using features like proc macros in Rust which dynamically generate code based on the code that is already there (§\ref{sec:future-work-macros}). As for varying implementations, I chose to use the static library \texttt{rustls} to implement my TLS server. Perhaps someone else would prefer OpenSSL or LibreSSL, which is of course fine. For the HTTP part I use a random library I found on the Internet to parse HTTP headers before responding only to GET requests. Of course this approach is hugely error prone, but the separation of the HTTP handler from the sensitive TLS material and other parts of the filesystem increases my confidence. The implementation therefore matters very little in this analysis, but is made available at \url{https://github.com/JakeHillion/void-orchestrator/tree/main/examples/tls} and along with this dissertation.
 
-\section{Summary}
+\subsection{Performance}
+\label{sec:tls-performance}
 
-While avoiding looking at the internals, I've demonstrated how void processes can both run a standard process with no privilege requirements and define a structure for a new application. Explicit definitions of privilege can make it very clear to the programmer where privilege boundaries are, leading to effective privilege separation. In Chapter \ref{chap:evaluation} we will look at the performance changes caused by these designs, where the use of standard file descriptors as capabilities will highlight how performant this design can be.
-
-
-\chapter{Evaluation}
-\label{chap:evaluation}
-
-Privilege separation often presents a trade-off between performance and security. This evaluation attempts to quantify that overhead, first discussing the cost of creating void processes (§\ref{sec:evaluation-startup}), both theoretically and on the Fibonacci test application (\ref{sec:building-fib}). Secondly, we take a look at the runtime overhead of privilege separation (§\ref{sec:evaluation-runtime}), specifically on the TLS server example (\ref{sec:building-tls}).
-
-\section{Startup costs}
-\label{sec:evaluation-startup}
-
-Every void process created requires a set of 7 unique namespaces, which is a lot of work compared to a standard \texttt{fork(2)}/\texttt{vfork(2)} call. Here I evaluated the overhead of such operations, first on the raw clone calls, and secondly on launching the basic Fibonacci application (§\ref{sec:building-fib}).
-
-
-
-\begin{figure}
-    \centering
-    \includegraphics[width=0.8\textwidth]{graphs/fib_launch_times.png}
-
-    \caption{A box plot comparing the performance of the Fibonacci example (§\ref{sec:building-fib} under the shim and called directly. The median time to run under the shim is approximately 800\% the time without. The inter-quartile range and range of results is also much larger.}
-    \label{fig:fib-launch-times}
-\end{figure}
-
-\section{Runtime impact}
-\label{sec:evaluation-runtime}
+\todo{Write about tls performance.}
 
 \begin{figure}
     \centering
@@ -1040,7 +1023,7 @@ Every void process created requires a set of 7 unique namespaces, which is a lot
 
 \section{Summary}
 
-\todo{Evaluation: summary.}
+While avoiding looking at the internals, I've demonstrated how void processes can both run a standard process with no privilege requirements and define a structure for a new application. Explicit definitions of privilege can make it very clear to the programmer where privilege boundaries are, leading to effective privilege separation. The performance changes caused by these designs have been evaluated, where the use of standard file descriptors as capabilities shows that utilising the void orchestrator can achieve acceptable performance with minimal programming effort.
 
 
 \chapter{Conclusions}
@@ -1058,7 +1041,7 @@ Finally, void processes provide a seamless experience without making kernel leve
 \subsection{Kernel API improvements}
 \label{sec:future-work-kernel-api}
 
-The primary future work to increase the utility of void processes is better performance when creating empty namespaces. Section \ref{sec:evaluation-startup} showed that the startup hit when creating the namespaces for a void is very high. This shows a limitation of the APIs, as creating a namespace that has no relation to a parent should involve a small amount of work. Secondly, an API similar to network namespaces adding paired interfaces between namespaces should be added for binding in mount namespaces, allowing mount namespaces to also be created completely empty. This would also benefit containers which by default have no connection to the parent namespace, but need to mount in their own root filesystem.
+The primary future work to increase the utility of void processes is better performance when creating empty namespaces. Sections \ref{sec:void-creation-costs} and \ref{fig:fib-launch-times} showed that the startup hit when creating the namespaces for a void is very high. This shows a limitation of the APIs, as creating a namespace that has no relation to a parent should involve a small amount of work. Secondly, an API similar to network namespaces adding paired interfaces between namespaces should be added for binding in mount namespaces, allowing mount namespaces to also be created completely empty. This would also benefit containers which by default have no connection to the parent namespace, but need to mount in their own root filesystem.
 
 \subsection{Dynamic linking}
 \label{sec:future-work-dynamic-linking}
