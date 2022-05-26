@@ -24,7 +24,6 @@
 \usepackage{multirow}                 % multi-row cells in tables
 \usepackage{makecell}                 % multi-line cells in tables
 \usepackage[subpreambles]{standalone} % tex files as diagrams
-\usepackage{svg}                      % svgs in includegraphics
 
 % TODO: remove me
 \usepackage{todonotes}
@@ -124,16 +123,16 @@ Main chapters (excluding front-matter, references and appendix):
 \contentpages~pages
 (pp~\pageref{firstcontentpage}--\pageref{lastcontentpage})
 
-Main chapters word count: 8291
+Main chapters word count: 12485
 
 Methodology used to generate that word count:
 
 \begin{quote}
 \begin{verbatim}
 £ texcount report.tex | grep Words
-Words in text: 8070
-Words in headers: 93
-Words outside text (captions, etc.): 128
+Words in text: 11565
+Words in headers: 110
+Words outside text (captions, etc.): 810
 \end{verbatim}
 
 \texttt{texcount} macros are used to ensure counting begins on the first content page and ends on the last content page.
@@ -199,7 +198,7 @@ This thesis argues that we need a framework to restrict Linux processes -- remov
 
 This project built a system, the void orchestrator, to enable application developers to build upwards from a point of zero-privilege, rather than removing privilege that they don't need. This report gives the background and technical details of how to achieve this on modern Linux. I present a summary of the privilege separation techniques currently employed in production (§\ref{chap:priv-sep}) and details on how to create an empty set of namespaces to remove all privilege in Linux (§\ref{chap:entering-the-void}), a technique named entering the void. The shortcomings of Linux when creating empty namespaces are discussed (§\ref{sec:voiding-mount},§\ref{sec:voiding-user},§\ref{sec:voiding-cgroup}), before setting forth the methods for re-adding features in each of these domains (§\ref{chap:filling-the-void}). Finally, two example applications are built and evaluated (§\ref{chap:building-apps}) to show the utility of the system. This report aims to demonstrate the value of a paradigm shift from reducing an arbitrary amount of privilege to adding only what is necessary.
 
-Much prior work exists in the space of privilege separation, including: virtual machines (§\ref{sec:priv-sep-another-machine}); containers (§\ref{sec:priv-sep-perspective}); object capabilities (§\ref{sec:priv-sep-ownership}); unikernels; and applications which run directly on a Linux host, potentially employing privilege separation of their own (§\ref{sec:priv-sep-process}, §\ref{sec:priv-sep-time}). These alternative environments are plotted in Figure \ref{fig:attack-vs-changes}, in which the difference between applications written for the environment and the attack surface remaining are compared. Void processes contribute a strong compromise between providing a rich Linux-like interface for applications, reducing necessary code changes, and significantly reducing the attack surface (demonstrated in §\ref{chap:entering-the-void}).
+Much prior work exists in the space of privilege separation, including: virtual machines (§\ref{sec:priv-sep-another-machine}); containers (§\ref{sec:priv-sep-perspective}); object capabilities (§\ref{sec:priv-sep-ownership}); unikernels; and applications which run directly on a Linux host, potentially employing privilege separation of their own (§\ref{sec:priv-sep-process}, §\ref{sec:priv-sep-time}). These alternative environments are plotted in Figure \ref{fig:attack-vs-changes}, in which the difference between applications written for the environment and the attack surface remaining are compared. Void processes contribute a strong compromise between providing a rich Linux-like interface for applications, which reduces necessary code changes, and significantly reducing the attack surface (demonstrated in §\ref{chap:entering-the-void}).
 
 \begin{figure}[h]
     \centering
@@ -689,7 +688,7 @@ Figure \ref{fig:namespace-times} compares the time of \texttt{clone(2)} calls wi
 
 \begin{figure}
     \centering
-    \includegraphics[width=0.7\textwidth]{graphs/namespace_times.png}
+    \includegraphics[width=0.7\textwidth]{graphs/clone_individual_namespaces.png}
 
     \caption{Performance of making the \texttt{clone(2)} system call with varying namespace creation flags. The test is run in a tight compiled C loop with high precision timings taken before and after each new process is cloned and waited for. \texttt{clone(2)} presents very noisy results on a system with background activity.}
     \label{fig:namespace-times}
@@ -699,7 +698,7 @@ As void processes must create multiple namespaces to effectively isolate process
 
 \begin{figure}
     \centering
-    \includegraphics[width=0.8\textwidth]{graphs/namespace_stacked_times.png}
+    \includegraphics[width=0.8\textwidth]{graphs/clone_stacked_namespaces.png}
 
     \caption{Performance of making the \texttt{clone(2)} system call with increasing amounts of namespace creation flags. The effects of Figure \ref{fig:namespace-times} are amplified when creating multiple namespaces in a single call this frequently. There is a clear divide between the time taken for user, pid, uts, and cgroup namespaces and ipc, ns and net namespaces.}
     \label{fig:namespace-stacked-times}
@@ -875,7 +874,7 @@ The results demonstrate
 
 \begin{figure}
     \centering
-    \includegraphics[width=0.8\textwidth]{graphs/fib_launch_times.png}
+    \includegraphics[width=0.8\textwidth]{graphs/fib_startup.png}
 
     \caption{A box plot comparing the performance of the Fibonacci example (§\ref{sec:building-fib} under the shim and called directly. The median time to run under the shim is approximately 800\% the time without. The inter-quartile range and range of results is also much larger.}
     \label{fig:fib-launch-times}
@@ -1015,10 +1014,18 @@ We now have a full specification for a TLS server. In this section I have focuse
 
 \begin{figure}
     \centering
-    \includegraphics[width=0.8\textwidth]{graphs/tls-server-requests-per-second.png}
+    \includegraphics[width=0.8\textwidth]{graphs/tls_performance.png}
 
     \caption{\texttt{a2bench} requests per second results over 10 seconds with 100 simultaneous requests on varying response sizes. As the response size increases, the gap between the \texttt{apache2} TLS web server and the void process TLS web server decreases.}
     \label{fig:tls-performance}
+\end{figure}
+
+\begin{figure}
+    \centering
+    \includegraphics[width=0.8\textwidth]{graphs/tls_relative_performance.png}
+
+    \caption{\texttt{a2bench} requests per second results over 10 seconds with 100 simultaneous requests on varying response sizes. As the response size increases, the gap between the \texttt{apache2} TLS web server and the void process TLS web server decreases.}
+    \label{fig:tls-relative-performance}
 \end{figure}
 
 \section{Summary}
