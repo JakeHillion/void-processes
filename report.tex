@@ -40,7 +40,7 @@
 % Select which version this is:
 % For the (anonymous) submission (without your name or acknowledgements)
 % uncomment the following line (or let the makefile do this for you)
-\submissiontrue
+%\submissiontrue
 % For the final version (with your name) leave the above commented.
 
 \begin{document}
@@ -119,16 +119,16 @@ Main chapters (excluding front-matter, references and appendix):
 \contentpages~pages
 (pp~\pageref{firstcontentpage}--\pageref{lastcontentpage})
 
-Main chapters word count: 12799
+Main chapters word count: 11998
 
 Methodology used to generate that word count:
 
 \begin{quote}
 \begin{verbatim}
 £ texcount report.tex | grep Words
-Words in text: 11844
+Words in text: 11023
 Words in headers: 108
-Words outside text (captions, etc.): 847
+Words outside text (captions, etc.): 867
 \end{verbatim}
 
 \texttt{texcount} macros are used to ensure counting begins on the first content page and ends on the last content page.
@@ -171,9 +171,20 @@ All trademarks used in this dissertation are hereby acknowledged.
 
 \chapter*{Abstract}
 
-The important of privilege separation - separating the parts of an application with the most risk of attack from the parts with the most reward for an attacker - for protection of resources in a modern operating system cannot be understated. As Linux has grown into the behemoth of an operating system that it is today, many privileges and attack vectors have been enabled, large amounts of which are given passively to new processes. New methods for protecting applications and processes have come along at nearly the same rate. This paper presents void processes: a framework to restrict Linux processes, removing access to ambient resources by default and providing APIs to systematically unlock abilities that applications require. Void processes solve the problem of needing to know what your privilege is in order to reduce it, as an application developer can begin from a clean slate.
+% Begun in 1988, the human genome project intends to map the 23 chromosomes that provide the blueprint for the human species. The project has both scientific and ethical goals. The scientific goals underscore the advantages of the genome project, including identifying and curing diseases and enabling people to select the traits of their offspring, among other opportunities. Ethically, however, the project raises serious questions about the morality of genetic engineering. To handle both the medical opportunities and ethical dilemmas posed by the genome project, scientists need to develop a clear set of principles for genetic engineering and to continue educating the public about the genome project.
 
-This project built a system, the void orchestrator, to enable application developers to build upwards from a point of zero-privilege, rather than removing privilege that they don't need. This report gives the background and technical details of how to achieve this on modern Linux. I present a summary of the privilege separation techniques currently employed in production and details on how to create an empty set of namespaces to remove all privilege in Linux, a technique named entering the void. The shortcomings of Linux when creating empty namespaces are discussed, before setting forth the methods for re-adding features in each of these domains. Finally, two example applications are built and their performance evaluated to show the utility of the system. This report aims to demonstrate the value of a paradigm shift from reducing an arbitrary amount of privilege to adding only what is necessary.
+% 25% of their space on the purpose and importance of the research (Introduction)
+% 25% of their space on what you did (Methods)
+% 35% of their space on what you found (Results)
+% 15% of their space on the implications of the research
+
+Void processes intend to make it easier for all developers to produce effectively privilege separated applications. The project has two primary goals: show the merits of starting from zero privilege, and provide the utilities to make this feasible for the average developer.
+
+Building void processes involves first reliably removing all privilege from a process then systematically adding back in what is required, and no more. This project utilises namespaces on Linux to revoke privilege from an application, showing how this can be done and why its easier in some domains than others. We then show how to inject sufficient privilege for applications to perform useful work, developing new APIs that are friendly for privilege separation. These elements compose a shim called the void orchestrator, a framework for restricting Linux processes.
+
+Two example applications are presented to demonstrate the utility of a shim helping with privilege separation. The startup performance is negatively affected by the design of the kernel, and future work is proposed to aid this. After the delay in startup, applications developed within this framework are shown to be highly performant.
+
+Computer Scientists need better tools handle the continuing prevalence of vulnerabilities in computer software. Starting from nothing is a new approach to privilege separation on Linux that has noticeable benefits. Linux should focus on reducing namespace creation latency however they can, and beginning from nothing is a good way to achieve that.
 
 \cleardoublepage % preserve page numbers after missing acknowledgements
 
@@ -196,7 +207,7 @@ This project presents a system, the void orchestrator, to enable application dev
 
 Prior work exists for privilege separation, including: virtual machines (§\ref{sec:priv-sep-another-machine}); containers (§\ref{sec:priv-sep-perspective}); object capabilities (§\ref{sec:priv-sep-ownership}); unikernels; and applications which run directly on a Linux host, potentially employing privilege separation of their own (§\ref{sec:priv-sep-process}, §\ref{sec:priv-sep-time}). These environments are plotted in Figure \ref{fig:attack-vs-changes}, which compares the environment's support for Linux APIs and the attack surface remaining. Void processes represent a strong compromise between a rich subset of Linux for applications - reducing code changes - and significantly reducing the attack surface (demonstrated in §\ref{chap:entering-the-void}).
 
-\begin{figure}[h]
+\begin{figure}
     \centering
     \includestandalone[width=0.8\textwidth]{diagrams/attack-surface-vs-linux-compatibility}
     
@@ -208,7 +219,7 @@ Prior work exists for privilege separation, including: virtual machines (§\ref{
 \chapter{Privilege Separation}
 \label{chap:priv-sep}
 
-Many attack vectors exist in software, notably in argument processing \citep{the_mitre_corporation_improper_2006} and deserialisation \citep{the_mitre_corporation_deserialization_2006}. Creating secure applications requires one of two things: creating applications without security bugs, or separating the parts of the application with the potential to cause damage from the parts most likely to contain bugs. Though many efforts have been made to create correct applications and protocols \citep{hawblitzel_ironfleet_2015,ma_i4_2019,nelson_scaling_2019}, the use of such technology is far from widespread and security related bugs in applications are still frequent - over 20 thousand Common Vulnerability and Exposure (CVE) reports were published in 2021 \footnote{\url{https://www.cve.org/About/Metrics}}. Rather than attempting to avoid bugs, we primarily employ privilege separation: ensuring that the privileged portion of the application is separated from the portion which is likely to be attacked. This chapter details what privilege separation is, why it is useful, and a summary of some of the privilege separation techniques available in modern Unices. Many of these techniques are included in some form in the final design for void processes.
+Many attack vectors exist in software, notably in argument processing \citep{the_mitre_corporation_improper_2006} and deserialisation \citep{the_mitre_corporation_deserialization_2006}. Creating secure applications requires one of two things: creating applications without security bugs, or separating the parts of the application with the potential to cause damage from the parts most likely to contain bugs. Though many efforts have been made to create correct applications and protocols \citep{hawblitzel_ironfleet_2015,ma_i4_2019,nelson_scaling_2019}, the use of such technology is far from widespread and security related bugs in applications are still frequent - over 20,000 Common Vulnerability and Exposure (CVE) reports were published in 2021 \footnote{\url{https://www.cve.org/About/Metrics}}. Rather than attempting to avoid bugs, we primarily employ privilege separation: ensuring that the privileged portion of the application is separated from the portion which is likely to be attacked. This chapter details what privilege separation is, why it is useful, and a summary of some of the privilege separation techniques available in modern Unices. Many of these techniques are included in some form in the final design for void processes.
 
 \section{Privilege separation by process}
 \label{sec:priv-sep-process}
@@ -369,13 +380,14 @@ Network namespaces present the optimal namespace for running a void process. Cre
 \begin{minted}{shell-session}
 #
 #
-# ip link add veth0 type veth peer veth1
+# ip link add veth0 type veth \
+      peer veth1
 # ip link set veth1 netns test
 # ip addr add 192.168.0.1/24 dev veth0
 # ip link set up dev veth0
 # ping -c 1 192.168.0.2
-PING 192.168.0.2 (192.168.0.2) 56(84) bytes of data.
-64 bytes from 192.168.0.2: icmp_seq=1 ttl=64 time=0.317 ms
+PING 192.168.0.2 (192.168.0.2) 56(...
+64 bytes from 192.168.0.2: icmp_se...
 \end{minted}
 
 \end{minipage}\hfill
@@ -386,11 +398,12 @@ PING 192.168.0.2 (192.168.0.2) 56(84) bytes of data.
 # ip netns attach test ££
 #
 #
+#
 # ip addr add 192.168.0.2/24 dev veth1
 # ip link set up dev veth1
 # ping -c 1 192.168.0.1
-PING 192.168.0.1 (192.168.0.1) 56(84) bytes of data.
-64 bytes from 192.168.0.1: icmp_seq=1 ttl=64 time=0.107 ms
+PING 192.168.0.1 (192.168.0.1) 56(...
+64 bytes from 192.168.0.1: icmp_se...
 \end{minted}
 
 \end{minipage}
@@ -868,7 +881,7 @@ Figure \ref{fig:fib-launch-times} shows the difference in spawning an applicatio
 
 \begin{figure}
     \centering
-    \includegraphics[width=0.8\textwidth]{graphs/fib_startup.png}
+    \includegraphics[width=0.6\textwidth]{graphs/fib_startup.png}
 
     \caption{A box plot comparing the performance of the Fibonacci example (§\ref{sec:building-fib} under the shim and called directly. The median time to run under the shim is approximately 800\% the time without. The inter-quartile range and range of results is also much larger.}
     \label{fig:fib-launch-times}
