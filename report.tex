@@ -543,11 +543,9 @@ While some other namespaces are inherited, they do not present the same challeng
 \subsection{Lazy unmounting}
 \label{sec:voiding-mount-lazy-unmount}
 
-The final interesting behaviour comes with unmounting the old root filesystem. Although this may initially seem isolated to void processes, it is also a problem in a container system. Consider again the container created in Listing \ref{lst:shared-subtrees}: the existing root must be unmounted after pivoting, else the container remains fully connected to the outside root.
+The final interesting behaviour comes with unmounting the old root filesystem. Although this may initially seem isolated to void processes, it affects containers too. Consider again the container created in Listing \ref{lst:shared-subtrees} - the existing root must be unmounted after pivoting, else the container remains fully connected to the parent root.
 
-Referring again to network namespaces, sockets continue to exist in their initial namespace, allowing for regular file-descriptor passing semantics \citep{biederman_re_2007}. Extending upon this socket behaviour is Wireguard, which creates adapters that may be freely moved between namespaces while continuing to connect externally from their initial parent \citep[§7.3]{donenfeld_wireguard_2017}.
-
-Although file descriptors work in this way with mount namespaces, the memory mapping of a currently running process's binary does not. Consider the example in Listing \ref{lst:unshare-umount}, which shows a short C program and the result of running it. It is seen that the \texttt{/} mount is busy when attempting the unmount. Given that the process was created in the parent namespace, the behaviour of file descriptors would suggest that the process would maintain a link to the parent namespace for its own memory mapped regions. However, the fact that the otherwise empty namespace has a busy mount demonstrates that this is not the case.
+File descriptors intentionally ignore namespace boundaries namespaces \citep{biederman_re_2007}, working the same with both mount and network namespaces. Consider the example in Listing \ref{lst:unshare-umount}, which shows a short C program and the result of running it. It is seen that the \texttt{/} mount is busy when attempting the unmount. Given that the process was created in the parent namespace, the behaviour of file descriptors would suggest that the process would maintain a link to the parent namespace for its own memory mapped regions. However, the fact that the otherwise empty namespace has a busy mount demonstrates that this is not the case.
 
 \begin{listing}
 \begin{minted}{c}
